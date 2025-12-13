@@ -1,0 +1,16 @@
+﻿[project]
+name = "pharma-insights-tool"
+version = "0.1.0"
+description = "Product-centric literature intelligence for pharma"
+requires-python = ">=3.10"
+
+dependencies = [
+    "requests",
+    "pydantic",
+    "python-dotenv",
+    "spacy",
+    "scispacy"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

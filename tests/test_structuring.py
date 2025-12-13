@@ -29,6 +29,7 @@ def test_sentence_splitter_orders_sections_and_sentences():
     document = splitter.split_document(record)
 
     assert document.title == record.title
+    assert document.doc_id.startswith("unknown:pmid:12345")
     assert document.pmid == "12345"
 
     sentences = list(document.iter_sentences())
@@ -57,6 +58,8 @@ def test_document_to_dict_serializes_sections_and_sentence_indices():
 
     as_dict = document.to_dict()
 
+    assert as_dict["doc_id"] == document.doc_id
+    assert as_dict["source"] is None
     assert as_dict["pmid"] == "12345"
     assert as_dict["publication_date"] is None
     assert as_dict["sections"][0]["sentences"][0]["index"] == 0

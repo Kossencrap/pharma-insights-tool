@@ -3,10 +3,7 @@ from datetime import date
 import json
 from pathlib import Path
 
-from src.ingestion.europe_pmc_client import (
-    EuropePMCClient,
-    EuropePMCQuery,
-)
+from ingestion import EuropePMCClient, EuropePMCQuery
 
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")

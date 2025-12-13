@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "pharma-insights-tool"
 version = "0.1.0"
 description = "Product-centric literature intelligence for pharma"
@@ -9,8 +9,18 @@ dependencies = [
     "pydantic",
     "python-dotenv",
     "spacy",
-    "scispacy"
+    "scispacy",
 ]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

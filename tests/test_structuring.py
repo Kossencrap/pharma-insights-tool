@@ -49,3 +49,14 @@ def test_sentence_and_section_analytics():
 
     average_length = mean_sentence_length(document)
     assert average_length > 10
+
+
+def test_document_to_dict_serializes_sections_and_sentence_indices():
+    splitter = SentenceSplitter()
+    document = splitter.split_document(_example_record())
+
+    as_dict = document.to_dict()
+
+    assert as_dict["pmid"] == "12345"
+    assert as_dict["publication_date"] is None
+    assert as_dict["sections"][0]["sentences"][0]["index"] == 0

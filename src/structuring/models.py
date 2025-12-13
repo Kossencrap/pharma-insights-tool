@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from src.ingestion.models import EuropePMCSearchResult
 
@@ -57,3 +57,36 @@ class Document:
 
     def add_section(self, section: Section) -> None:
         self.sections.append(section)
+
+    def to_dict(self) -> Dict[str, object]:
+        """Serialize document (and nested sections) to JSON-friendly dict."""
+
+        def _sentence_to_dict(sentence: Sentence) -> Dict[str, object]:
+            return {
+                "text": sentence.text,
+                "index": sentence.index,
+                "start_char": sentence.start_char,
+                "end_char": sentence.end_char,
+                "section": sentence.section,
+            }
+
+        def _section_to_dict(section: Section) -> Dict[str, object]:
+            return {
+                "name": section.name,
+                "text": section.text,
+                "sentences": [_sentence_to_dict(s) for s in section.sentences],
+            }
+
+        return {
+            "pmid": self.pmid,
+            "pmcid": self.pmcid,
+            "doi": self.doi,
+            "title": self.title,
+            "abstract": self.abstract,
+            "publication_date": self.publication_date.isoformat()
+            if self.publication_date
+            else None,
+            "pub_year": self.pub_year,
+            "journal": self.journal,
+            "sections": [_section_to_dict(section) for section in self.sections],
+        }

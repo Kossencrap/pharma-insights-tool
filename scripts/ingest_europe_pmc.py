@@ -87,12 +87,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_ingestion(product_names: List[str], args: argparse.Namespace) -> None:
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+def run_ingestion(
+    product_names: List[str],
+    args: argparse.Namespace,
+    *,
+    client: EuropePMCClient | None = None,
+    splitter: SentenceSplitter | None = None,
+    raw_dir: Path = RAW_DIR,
+    processed_dir: Path = PROCESSED_DIR,
+) -> None:
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
 
-    client = EuropePMCClient(polite_delay_s=args.polite_delay)
-    splitter = SentenceSplitter()
+    client = client or EuropePMCClient(polite_delay_s=args.polite_delay)
+    splitter = splitter or SentenceSplitter()
 
     query_str = client.build_drug_query(
         product_names=product_names,
@@ -107,8 +115,8 @@ def run_ingestion(product_names: List[str], args: argparse.Namespace) -> None:
     results = list(client.search(query, max_records=args.max_records))
 
     prefix = args.output_prefix or _slug(product_names[0])
-    raw_path = RAW_DIR / f"{prefix}_raw.json"
-    structured_path = PROCESSED_DIR / f"{prefix}_structured.jsonl"
+    raw_path = raw_dir / f"{prefix}_raw.json"
+    structured_path = processed_dir / f"{prefix}_structured.jsonl"
 
     with raw_path.open("w", encoding="utf-8") as f:
         json.dump([r.raw for r in results], f, indent=2)

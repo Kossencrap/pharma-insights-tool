@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "pharma-insights-tool"
 version = "0.1.0"
 description = "Product-centric literature intelligence for pharma"
@@ -14,3 +14,4 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]

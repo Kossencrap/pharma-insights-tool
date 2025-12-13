@@ -89,7 +89,35 @@ def parse_args() -> argparse.Namespace:
         default=0.1,
         help="Seconds to sleep between Europe PMC requests",
     )
+    parser.add_argument(
+        "--no-proxy",
+        action="store_true",
+        help="Ignore system HTTP(S) proxy settings for Europe PMC requests",
+    )
+    parser.add_argument(
+        "--proxy",
+        action="append",
+        metavar="SCHEME=URL",
+        help=(
+            "Override proxy settings, e.g. https=https://user:pass@proxy:8080. "
+            "Repeat the flag to set both http/https."
+        ),
+    )
     return parser.parse_args()
+
+
+def _parse_proxy_overrides(proxy_args: List[str] | None) -> dict[str, str]:
+    proxies: dict[str, str] = {}
+    for entry in proxy_args or []:
+        if "=" not in entry:
+            raise ValueError("Proxy override must be in SCHEME=URL format")
+        scheme, url = entry.split("=", 1)
+        scheme = scheme.strip().lower()
+        url = url.strip()
+        if not scheme or not url:
+            raise ValueError("Proxy override requires non-empty scheme and URL")
+        proxies[scheme] = url
+    return proxies
 
 
 def run_ingestion(
@@ -104,7 +132,23 @@ def run_ingestion(
     raw_dir.mkdir(parents=True, exist_ok=True)
     processed_dir.mkdir(parents=True, exist_ok=True)
 
-    client = client or EuropePMCClient(polite_delay_s=args.polite_delay)
+    try:
+        proxies = _parse_proxy_overrides(args.proxy)
+    except ValueError as exc:
+        print(f"Invalid proxy configuration: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+    if args.no_proxy:
+        print("Proxy usage disabled for Europe PMC requests (trust_env=False).")
+    if proxies:
+        proxy_keys = ", ".join(sorted(proxies))
+        print(f"Using custom proxy overrides for Europe PMC requests: {proxy_keys}.")
+
+    client = client or EuropePMCClient(
+        polite_delay_s=args.polite_delay,
+        trust_env=not args.no_proxy,
+        proxies=proxies or None,
+    )
     splitter = splitter or SentenceSplitter()
 
     query_str = client.build_drug_query(

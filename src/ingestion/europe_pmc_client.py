@@ -47,12 +47,19 @@ class EuropePMCClient:
         backoff_factor: float = 0.5,
         user_agent: str = "pharma-insights-tool/0.1 (+https://github.com/Kossencrap/pharma-insights-tool)",
         polite_delay_s: float = 0.0,
+        *,
+        trust_env: bool = True,
+        proxies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.timeout_s = timeout_s
         self.polite_delay_s = polite_delay_s
 
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
+        # Allow callers to bypass environment proxy variables when local proxies block access.
+        self.session.trust_env = trust_env
+        if proxies:
+            self.session.proxies.update(proxies)
 
         retry = Retry(
             total=max_retries,

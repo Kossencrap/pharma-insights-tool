@@ -27,6 +27,7 @@ class EuropePMCQuery:
     page_size: int = 100
     format: str = "json"  # Europe PMC supports json, xml
     sort: str = "P_PDATE_D desc"  # publication date descending (Europe PMC requires order)
+    result_type: str = "core"  # include abstracts and richer metadata
 
 
 class EuropePMCClient:
@@ -257,6 +258,7 @@ class EuropePMCClient:
             "pageSize": q.page_size,
             "cursorMark": cursor_mark,
             "sort": self._validate_sort(q.sort),
+            "resultType": q.result_type,
         }
         r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
         if r.status_code != 200:
@@ -273,6 +275,7 @@ class EuropePMCClient:
             "pageSize": q.page_size,
             "page": page,
             "sort": self._validate_sort(q.sort),
+            "resultType": q.result_type,
         }
         r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
         if r.status_code != 200:

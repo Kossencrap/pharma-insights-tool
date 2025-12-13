@@ -1,9 +1,22 @@
 # scripts/ingest_europe_pmc.py
+"""Run a simple Europe PMC ingestion for one product.
+
+This script is intended to work when executed directly (``python scripts/ingest_europe_pmc.py``)
+without requiring an editable install. We therefore ensure the repository root is on the
+``PYTHONPATH`` before importing from ``src``.
+"""
+
 from datetime import date
 import json
 from pathlib import Path
+import sys
 
-from src.ingestion.europe_pmc_client import (
+# Make ``src`` importable when the repo has not been installed in editable mode.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.ingestion.europe_pmc_client import (  # noqa: E402
     EuropePMCClient,
     EuropePMCQuery,
 )

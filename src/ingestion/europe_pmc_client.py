@@ -26,7 +26,7 @@ class EuropePMCQuery:
     query: str
     page_size: int = 100
     format: str = "json"  # Europe PMC supports json, xml
-    sort: str = "P_PDATE_D"  # publication date descending
+    sort: str = "P_PDATE_D desc"  # publication date descending (Europe PMC requires order)
 
 
 class EuropePMCClient:
@@ -307,10 +307,11 @@ class EuropePMCClient:
     @staticmethod
     def _raise_version_stub_error() -> None:
         raise RuntimeError(
-            "Europe PMC returned only a version stub. This usually means the request was "
-            "filtered or rewritten by a proxy or network security device. Try running on a "
-            "different network, adjusting proxy settings, or using --legacy-pagination to "
-            "fall back to page-based requests."
+            "Europe PMC returned only a version stub. Common causes include using an invalid "
+            "sort parameter (it must include an explicit order, e.g., 'P_PDATE_D desc') or a "
+            "proxy/network device filtering the request. Try adding the sort order, running "
+            "on a different network, adjusting proxy settings, or using --legacy-pagination "
+            "to fall back to page-based requests."
         )
 
     # --------------------------

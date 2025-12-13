@@ -149,6 +149,7 @@ class EuropePMCClient:
         q: EuropePMCQuery,
         *,
         max_records: Optional[int] = None,
+        initial_payload: Optional[Dict[str, Any]] = None,
     ) -> Iterable[EuropePMCSearchResult]:
         """
         Stream normalized search results.
@@ -160,11 +161,14 @@ class EuropePMCClient:
         page = 1
         yielded = 0
 
-        while True:
-            if self.polite_delay_s > 0:
-                time.sleep(self.polite_delay_s)
+        payload = initial_payload
 
-            payload = self._search_page(q, page=page)
+        while True:
+            if payload is None:
+                if self.polite_delay_s > 0:
+                    time.sleep(self.polite_delay_s)
+
+                payload = self._search_page(q, page=page)
             hits = payload.get("resultList", {}).get("result", []) or []
 
             if not hits:
@@ -177,6 +181,7 @@ class EuropePMCClient:
                     return
 
             page += 1
+            payload = None
 
     def search_to_list(
         self,
@@ -185,6 +190,10 @@ class EuropePMCClient:
         max_records: Optional[int] = None,
     ) -> List[EuropePMCSearchResult]:
         return list(self.search(q, max_records=max_records))
+
+    def fetch_search_page(self, q: EuropePMCQuery, *, page: int = 1) -> Dict[str, Any]:
+        """Public helper to fetch a single search page for diagnostics."""
+        return self._search_page(q, page=page)
 
     def _search_page(self, q: EuropePMCQuery, *, page: int) -> Dict[str, Any]:
         params = {

@@ -24,6 +24,7 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
         last_build_kwargs = None
         last_search_query = None
         last_max_records = None
+        last_fetch_query = None
 
         def __init__(self, polite_delay_s: float = 0.0):
             self.polite_delay_s = polite_delay_s
@@ -33,7 +34,11 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
             FakeClient.last_build_kwargs = kwargs
             return "mock query"
 
-        def search(self, query, max_records=None):
+        def fetch_search_page(self, query, page: int = 1):
+            FakeClient.last_fetch_query = query
+            return {"hitCount": len(fake_results), "resultList": {"result": [r.raw for r in fake_results]}}
+
+        def search(self, query, max_records=None, initial_payload=None):
             FakeClient.last_search_query = query
             FakeClient.last_max_records = max_records
             return iter(fake_results)
@@ -76,3 +81,50 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
     output = capsys.readouterr().out
     assert "Ingested 2 documents" in output
     assert "mockproduct_raw.json" in output
+
+
+def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys):
+    raw_dir = tmp_path / "raw"
+    processed_dir = tmp_path / "processed"
+
+    class EmptyClient:
+        def __init__(self, polite_delay_s: float = 0.0):
+            self.polite_delay_s = polite_delay_s
+
+        @staticmethod
+        def build_drug_query(**kwargs):
+            return "mock empty query"
+
+        @staticmethod
+        def fetch_search_page(query, page: int = 1):
+            return {"hitCount": 0, "resultList": {"result": []}}
+
+    monkeypatch.setattr(runner, "EuropePMCClient", EmptyClient)
+
+    args = argparse.Namespace(
+        from_date=None,
+        to_date=None,
+        include_reviews=True,
+        include_trials=True,
+        output_prefix=None,
+        max_records=5,
+        page_size=5,
+        polite_delay=0.0,
+    )
+
+    runner.run_ingestion(["NoResults"], args, raw_dir=raw_dir, processed_dir=processed_dir)
+
+    raw_path = raw_dir / "noresults_raw.json"
+    structured_path = processed_dir / "noresults_structured.jsonl"
+
+    assert raw_path.exists()
+    assert structured_path.exists()
+
+    with raw_path.open("r", encoding="utf-8") as f:
+        assert json.load(f) == []
+
+    with structured_path.open("r", encoding="utf-8") as f:
+        assert f.read() == ""
+
+    output = capsys.readouterr().out
+    assert "hitCount=0" in output

@@ -256,7 +256,7 @@ class EuropePMCClient:
             "format": q.format,
             "pageSize": q.page_size,
             "cursorMark": cursor_mark,
-            "sort": q.sort,
+            "sort": self._validate_sort(q.sort),
         }
         r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
         if r.status_code != 200:
@@ -272,7 +272,7 @@ class EuropePMCClient:
             "format": q.format,
             "pageSize": q.page_size,
             "page": page,
-            "sort": q.sort,
+            "sort": self._validate_sort(q.sort),
         }
         r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
         if r.status_code != 200:
@@ -303,6 +303,23 @@ class EuropePMCClient:
     @staticmethod
     def _is_version_stub(payload: Dict[str, Any]) -> bool:
         return set(payload.keys()) == {"version"}
+
+    @staticmethod
+    def _validate_sort(sort: str) -> str:
+        """Ensure a sort order is explicitly provided.
+
+        Europe PMC requires sort parameters to include the order (``asc`` or ``desc``);
+        omitting it results in a version-only payload instead of results.
+        """
+
+        normalized = sort.strip().lower()
+        if normalized.endswith(" asc") or normalized.endswith(" desc"):
+            return sort
+
+        raise ValueError(
+            "Europe PMC sort must include an explicit order, e.g., 'P_PDATE_D desc'. "
+            f"Got: '{sort}'."
+        )
 
     @staticmethod
     def _raise_version_stub_error() -> None:

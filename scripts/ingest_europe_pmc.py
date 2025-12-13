@@ -119,7 +119,7 @@ def run_ingestion(
     query = EuropePMCQuery(query=query_str, page_size=args.page_size)
 
     try:
-        first_page = client.fetch_search_page(query, page=1)
+        first_page = client.fetch_search_page(query, cursor_mark="*")
     except RuntimeError as exc:
         print(
             "Europe PMC search request failed (often caused by blocked proxies or network restrictions):",

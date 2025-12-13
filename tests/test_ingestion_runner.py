@@ -34,7 +34,7 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
             FakeClient.last_build_kwargs = kwargs
             return "mock query"
 
-        def fetch_search_page(self, query, page: int = 1):
+        def fetch_search_page(self, query, cursor_mark: str = "*"):
             FakeClient.last_fetch_query = query
             return {"hitCount": len(fake_results), "resultList": {"result": [r.raw for r in fake_results]}}
 
@@ -96,7 +96,7 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys):
             return "mock empty query"
 
         @staticmethod
-        def fetch_search_page(query, page: int = 1):
+        def fetch_search_page(query, cursor_mark: str = "*"):
             return {"hitCount": 0, "resultList": {"result": []}}
 
     monkeypatch.setattr(runner, "EuropePMCClient", EmptyClient)

@@ -155,10 +155,10 @@ class EuropePMCClient:
         Stream normalized search results.
 
         Pagination strategy:
-        - page=1..N using pageSize
+        - cursorMark-based pagination (required when using certain sort orders)
         - stop when we have no results or max_records reached
         """
-        page = 1
+        cursor = "*"
         yielded = 0
 
         payload = initial_payload
@@ -168,7 +168,7 @@ class EuropePMCClient:
                 if self.polite_delay_s > 0:
                     time.sleep(self.polite_delay_s)
 
-                payload = self._search_page(q, page=page)
+                payload = self._search_page(q, cursor_mark=cursor)
             hits = payload.get("resultList", {}).get("result", []) or []
 
             if not hits:
@@ -180,7 +180,10 @@ class EuropePMCClient:
                 if max_records is not None and yielded >= max_records:
                     return
 
-            page += 1
+            next_cursor = payload.get("nextCursorMark")
+            if not next_cursor or next_cursor == cursor:
+                break
+            cursor = next_cursor
             payload = None
 
     def search_to_list(
@@ -191,16 +194,16 @@ class EuropePMCClient:
     ) -> List[EuropePMCSearchResult]:
         return list(self.search(q, max_records=max_records))
 
-    def fetch_search_page(self, q: EuropePMCQuery, *, page: int = 1) -> Dict[str, Any]:
+    def fetch_search_page(self, q: EuropePMCQuery, *, cursor_mark: str = "*") -> Dict[str, Any]:
         """Public helper to fetch a single search page for diagnostics."""
-        return self._search_page(q, page=page)
+        return self._search_page(q, cursor_mark=cursor_mark)
 
-    def _search_page(self, q: EuropePMCQuery, *, page: int) -> Dict[str, Any]:
+    def _search_page(self, q: EuropePMCQuery, *, cursor_mark: str) -> Dict[str, Any]:
         params = {
             "query": q.query,
             "format": q.format,
             "pageSize": q.page_size,
-            "page": page,
+            "cursorMark": cursor_mark,
             "sort": q.sort,
         }
         r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)

@@ -20,6 +20,17 @@ python scripts/ingest_europe_pmc.py -p "dupilumab" -p "Dupixent" --from-date 202
 
 Outputs are written to `data/raw/` (raw JSON array) and `data/processed/` (one structured document per line).
 
+### Proxy troubleshooting
+If your environment blocks outbound traffic via a corporate proxy, you can disable proxy usage or provide explicit proxy URLs:
+
+```bash
+# Ignore system proxy variables
+python scripts/ingest_europe_pmc.py -p "aspirin" --no-proxy
+
+# Override proxies explicitly (repeat --proxy for each scheme)
+python scripts/ingest_europe_pmc.py -p "aspirin" --proxy "https=https://proxy.example:8080" --proxy "http=http://proxy.example:8080"
+```
+
 ## Non-goals (for now)
 - Gene or pathway extraction
 - Free-text summarization

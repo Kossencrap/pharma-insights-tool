@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import date
 from pathlib import Path
 from typing import List
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.analytics import mean_sentence_length, sentence_counts_by_section
 from src.ingestion.europe_pmc_client import EuropePMCClient, EuropePMCQuery

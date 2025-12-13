@@ -157,6 +157,8 @@ class EuropePMCClient:
         *,
         max_records: Optional[int] = None,
         initial_payload: Optional[Dict[str, Any]] = None,
+        use_cursor: bool = True,
+        allow_version_stub_fallback: bool = True,
     ) -> Iterable[EuropePMCSearchResult]:
         """
         Stream normalized search results.
@@ -166,16 +168,39 @@ class EuropePMCClient:
         - stop when we have no results or max_records reached
         """
         cursor = "*"
+        page = 1
         yielded = 0
 
         payload = initial_payload
+        cursor_mode = use_cursor
 
         while True:
             if payload is None:
                 if self.polite_delay_s > 0:
                     time.sleep(self.polite_delay_s)
 
-                payload = self._search_page(q, cursor_mark=cursor)
+                payload, cursor_mode = self._fetch_search_payload(
+                    q,
+                    cursor_mode=cursor_mode,
+                    cursor_mark=cursor,
+                    page=page,
+                    allow_version_stub_fallback=allow_version_stub_fallback,
+                )
+            elif self._is_version_stub(payload):
+                if cursor_mode and cursor == "*" and allow_version_stub_fallback:
+                    page = 1
+                    payload, cursor_mode = self._fetch_search_payload(
+                        q,
+                        cursor_mode=False,
+                        cursor_mark=cursor,
+                        page=page,
+                        allow_version_stub_fallback=allow_version_stub_fallback,
+                    )
+                else:
+                    self._raise_version_stub_error()
+
+            if self._is_version_stub(payload):
+                self._raise_version_stub_error()
             hits = payload.get("resultList", {}).get("result", []) or []
 
             if not hits:
@@ -188,9 +213,12 @@ class EuropePMCClient:
                     return
 
             next_cursor = payload.get("nextCursorMark")
-            if not next_cursor or next_cursor == cursor:
-                break
-            cursor = next_cursor
+            if cursor_mode:
+                if not next_cursor or next_cursor == cursor:
+                    break
+                cursor = next_cursor
+            else:
+                page += 1
             payload = None
 
     def search_to_list(
@@ -201,9 +229,26 @@ class EuropePMCClient:
     ) -> List[EuropePMCSearchResult]:
         return list(self.search(q, max_records=max_records))
 
-    def fetch_search_page(self, q: EuropePMCQuery, *, cursor_mark: str = "*") -> Dict[str, Any]:
+    def fetch_search_page(
+        self,
+        q: EuropePMCQuery,
+        *,
+        cursor_mark: str = "*",
+        page: int = 1,
+        use_cursor: bool = True,
+        allow_version_stub_fallback: bool = True,
+    ) -> Tuple[Dict[str, Any], bool]:
         """Public helper to fetch a single search page for diagnostics."""
-        return self._search_page(q, cursor_mark=cursor_mark)
+        payload, cursor_mode = self._fetch_search_payload(
+            q,
+            cursor_mode=use_cursor,
+            cursor_mark=cursor_mark,
+            page=page,
+            allow_version_stub_fallback=allow_version_stub_fallback,
+        )
+        if self._is_version_stub(payload):
+            self._raise_version_stub_error()
+        return payload, cursor_mode
 
     def _search_page(self, q: EuropePMCQuery, *, cursor_mark: str) -> Dict[str, Any]:
         params = {
@@ -220,6 +265,53 @@ class EuropePMCClient:
             return r.json()
         except json.JSONDecodeError as e:
             raise RuntimeError(f"Europe PMC returned non-JSON response: {e}") from e
+
+    def _search_page_legacy(self, q: EuropePMCQuery, *, page: int) -> Dict[str, Any]:
+        params = {
+            "query": q.query,
+            "format": q.format,
+            "pageSize": q.page_size,
+            "page": page,
+            "sort": q.sort,
+        }
+        r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
+        if r.status_code != 200:
+            raise RuntimeError(f"Europe PMC search failed: HTTP {r.status_code} - {r.text[:300]}")
+        try:
+            return r.json()
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Europe PMC returned non-JSON response: {e}") from e
+
+    def _fetch_search_payload(
+        self,
+        q: EuropePMCQuery,
+        *,
+        cursor_mode: bool,
+        cursor_mark: str,
+        page: int,
+        allow_version_stub_fallback: bool,
+    ) -> Tuple[Dict[str, Any], bool]:
+        if cursor_mode:
+            payload = self._search_page(q, cursor_mark=cursor_mark)
+            if self._is_version_stub(payload) and cursor_mark == "*" and allow_version_stub_fallback:
+                payload = self._search_page_legacy(q, page=page)
+                cursor_mode = False
+        else:
+            payload = self._search_page_legacy(q, page=page)
+        return payload, cursor_mode
+
+    @staticmethod
+    def _is_version_stub(payload: Dict[str, Any]) -> bool:
+        return set(payload.keys()) == {"version"}
+
+    @staticmethod
+    def _raise_version_stub_error() -> None:
+        raise RuntimeError(
+            "Europe PMC returned only a version stub. This usually means the request was "
+            "filtered or rewritten by a proxy or network security device. Try running on a "
+            "different network, adjusting proxy settings, or using --legacy-pagination to "
+            "fall back to page-based requests."
+        )
 
     # --------------------------
     # Optional full text retrieval (OA)

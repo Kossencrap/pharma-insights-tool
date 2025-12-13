@@ -34,11 +34,12 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
             FakeClient.last_build_kwargs = kwargs
             return "mock query"
 
-        def fetch_search_page(self, query, cursor_mark: str = "*"):
+        def fetch_search_page(self, query, cursor_mark: str = "*", **_: object):
             FakeClient.last_fetch_query = query
-            return {"hitCount": len(fake_results), "resultList": {"result": [r.raw for r in fake_results]}}
+            payload = {"hitCount": len(fake_results), "resultList": {"result": [r.raw for r in fake_results]}}
+            return payload, True
 
-        def search(self, query, max_records=None, initial_payload=None):
+        def search(self, query, max_records=None, initial_payload=None, use_cursor=True):
             FakeClient.last_search_query = query
             FakeClient.last_max_records = max_records
             return iter(fake_results)
@@ -54,6 +55,9 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
         max_records=2,
         page_size=2,
         polite_delay=0.0,
+        legacy_pagination=False,
+        no_proxy=False,
+        proxy=None,
     )
 
     runner.run_ingestion(["MockProduct"], args, raw_dir=raw_dir, processed_dir=processed_dir)
@@ -96,8 +100,11 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys):
             return "mock empty query"
 
         @staticmethod
-        def fetch_search_page(query, cursor_mark: str = "*"):
-            return {"hitCount": 0, "resultList": {"result": []}}
+        def fetch_search_page(query, cursor_mark: str = "*", **_: object):
+            return {"hitCount": 0, "resultList": {"result": []}}, True
+
+        def search(self, query, max_records=None, initial_payload=None, use_cursor=True):
+            return iter([])
 
     monkeypatch.setattr(runner, "EuropePMCClient", EmptyClient)
 
@@ -110,6 +117,9 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys):
         max_records=5,
         page_size=5,
         polite_delay=0.0,
+        legacy_pagination=False,
+        no_proxy=False,
+        proxy=None,
     )
 
     runner.run_ingestion(["NoResults"], args, raw_dir=raw_dir, processed_dir=processed_dir)

@@ -104,6 +104,14 @@ def parse_args() -> argparse.Namespace:
             "Repeat the flag to set both http/https."
         ),
     )
+    parser.add_argument(
+        "--legacy-pagination",
+        action="store_true",
+        help=(
+            "Use page-based pagination instead of cursorMark. Helpful when proxies "
+            "strip cursor responses; equivalent to passing --legacy-pagination to the client."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -155,6 +163,9 @@ def run_ingestion(
     if "proxies" in init_params:
         client_kwargs["proxies"] = proxies or None
 
+    if args.legacy_pagination:
+        print("Using legacy page-based pagination for Europe PMC requests.")
+
     client = client or EuropePMCClient(**client_kwargs)
     splitter = splitter or SentenceSplitter()
 
@@ -170,7 +181,11 @@ def run_ingestion(
     query = EuropePMCQuery(query=query_str, page_size=args.page_size)
 
     try:
-        first_page = client.fetch_search_page(query, cursor_mark="*")
+        first_page, cursor_mode = client.fetch_search_page(
+            query,
+            cursor_mark="*",
+            use_cursor=not args.legacy_pagination,
+        )
     except RuntimeError as exc:
         print(
             "Europe PMC search request failed (often caused by blocked proxies or network restrictions):",
@@ -204,7 +219,12 @@ def run_ingestion(
         return
 
     results = list(
-        client.search(query, max_records=args.max_records, initial_payload=first_page)
+        client.search(
+            query,
+            max_records=args.max_records,
+            initial_payload=first_page,
+            use_cursor=cursor_mode,
+        )
     )
 
     with raw_path.open("w", encoding="utf-8") as f:

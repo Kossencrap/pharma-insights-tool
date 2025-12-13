@@ -117,11 +117,40 @@ def run_ingestion(
     )
 
     query = EuropePMCQuery(query=query_str, page_size=args.page_size)
-    results = list(client.search(query, max_records=args.max_records))
+
+    try:
+        first_page = client.fetch_search_page(query, page=1)
+    except RuntimeError as exc:
+        print(
+            "Europe PMC search request failed (often caused by blocked proxies or network restrictions):",
+            exc,
+            file=sys.stderr,
+        )
+        raise
+
+    hit_count = int(first_page.get("hitCount") or 0)
 
     prefix = args.output_prefix or _slug(product_names[0])
     raw_path = raw_dir / f"{prefix}_raw.json"
     structured_path = processed_dir / f"{prefix}_structured.jsonl"
+
+    print(f"Europe PMC reported hitCount={hit_count} for the query.")
+
+    if hit_count == 0:
+        print(f"No Europe PMC results returned (hitCount=0) for query: {query.query}")
+        print("Check product spelling, relax date filters, or rerun without --exclude flags.")
+
+        with raw_path.open("w", encoding="utf-8") as f:
+            json.dump([], f, indent=2)
+
+        structured_path.touch()
+        print(f"Raw records written to: {raw_path}")
+        print(f"Structured documents written to: {structured_path}")
+        return
+
+    results = list(
+        client.search(query, max_records=args.max_records, initial_payload=first_page)
+    )
 
     with raw_path.open("w", encoding="utf-8") as f:
         json.dump([r.raw for r in results], f, indent=2)

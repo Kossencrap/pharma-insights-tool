@@ -1,15 +1,18 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "pharma-insights-tool"
 version = "0.1.0"
 description = "Product-centric literature intelligence for pharma"
 requires-python = ">=3.10"
-
 dependencies = [
     "requests",
     "pydantic",
     "python-dotenv",
     "spacy",
-    "scispacy"
+    "scispacy",
 ]
 
 [tool.pytest.ini_options]

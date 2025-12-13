@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import sys
 from datetime import date
@@ -132,23 +133,29 @@ def run_ingestion(
     raw_dir.mkdir(parents=True, exist_ok=True)
     processed_dir.mkdir(parents=True, exist_ok=True)
 
+    proxy_args = getattr(args, "proxy", None)
+    no_proxy = getattr(args, "no_proxy", False)
+
     try:
-        proxies = _parse_proxy_overrides(args.proxy)
+        proxies = _parse_proxy_overrides(proxy_args)
     except ValueError as exc:
         print(f"Invalid proxy configuration: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc
 
-    if args.no_proxy:
+    if no_proxy:
         print("Proxy usage disabled for Europe PMC requests (trust_env=False).")
     if proxies:
         proxy_keys = ", ".join(sorted(proxies))
         print(f"Using custom proxy overrides for Europe PMC requests: {proxy_keys}.")
 
-    client = client or EuropePMCClient(
-        polite_delay_s=args.polite_delay,
-        trust_env=not args.no_proxy,
-        proxies=proxies or None,
-    )
+    client_kwargs = {"polite_delay_s": args.polite_delay}
+    init_params = inspect.signature(EuropePMCClient.__init__).parameters
+    if "trust_env" in init_params:
+        client_kwargs["trust_env"] = not no_proxy
+    if "proxies" in init_params:
+        client_kwargs["proxies"] = proxies or None
+
+    client = client or EuropePMCClient(**client_kwargs)
     splitter = splitter or SentenceSplitter()
 
     query_str = client.build_drug_query(
@@ -172,16 +179,20 @@ def run_ingestion(
         )
         raise
 
-    hit_count = int(first_page.get("hitCount") or 0)
+    hit_count = first_page.get("hitCount")
+    first_hits = first_page.get("resultList", {}).get("result", []) or []
 
     prefix = args.output_prefix or _slug(product_names[0])
     raw_path = raw_dir / f"{prefix}_raw.json"
     structured_path = processed_dir / f"{prefix}_structured.jsonl"
 
-    print(f"Europe PMC reported hitCount={hit_count} for the query.")
+    if hit_count is not None:
+        print(f"Europe PMC reported hitCount={hit_count} for the query.")
+    else:
+        print("Europe PMC did not include hitCount; continuing based on returned results.")
 
-    if hit_count == 0:
-        print(f"No Europe PMC results returned (hitCount=0) for query: {query.query}")
+    if not first_hits:
+        print(f"No Europe PMC results returned for query: {query.query}")
         print("Check product spelling, relax date filters, or rerun without --exclude flags.")
 
         with raw_path.open("w", encoding="utf-8") as f:

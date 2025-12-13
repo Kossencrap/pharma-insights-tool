@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import inspect
-import json
 import sys
 from datetime import date
 from pathlib import Path
@@ -14,9 +13,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.analytics import mean_sentence_length, sentence_counts_by_section
+import json
+from src.analytics import (
+    MentionExtractor,
+    co_mentions_from_sentence,
+    load_product_config,
+    mean_sentence_length,
+    sentence_counts_by_section,
+)
 from src.ingestion.europe_pmc_client import EuropePMCClient, EuropePMCQuery
+from src.storage import init_db, insert_co_mentions, insert_mentions, insert_sentences, upsert_document
 from src.structuring.sentence_splitter import SentenceSplitter
+from src.utils.identifiers import build_sentence_id
 
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
@@ -112,6 +120,17 @@ def parse_args() -> argparse.Namespace:
             "strip cursor responses; equivalent to passing --legacy-pagination to the client."
         ),
     )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        help="Optional SQLite database path for persistence of documents, sentences, and mentions.",
+    )
+    parser.add_argument(
+        "--product-config",
+        type=Path,
+        default=ROOT / "config" / "products.json",
+        help="Path to product dictionary JSON for deterministic mention extraction.",
+    )
     return parser.parse_args()
 
 
@@ -140,6 +159,23 @@ def run_ingestion(
 ) -> None:
     raw_dir.mkdir(parents=True, exist_ok=True)
     processed_dir.mkdir(parents=True, exist_ok=True)
+
+    db_path: Path | None = getattr(args, "db", None)
+    product_config: Path | None = getattr(args, "product_config", None)
+
+    conn = init_db(db_path) if db_path else None
+
+    mention_extractor: MentionExtractor | None = None
+    if product_config and product_config.exists():
+        product_dict = load_product_config(product_config)
+        mention_extractor = MentionExtractor(product_dict)
+        print(
+            f"Loaded {len(product_dict)} products from {product_config} for mention extraction."
+        )
+    elif db_path:
+        print(
+            f"No product config found at {product_config}; skipping mention extraction while still writing documents to DB."
+        )
 
     proxy_args = getattr(args, "proxy", None)
     no_proxy = getattr(args, "no_proxy", False)
@@ -237,6 +273,43 @@ def run_ingestion(
             documents.append(doc)
             f.write(json.dumps(doc.to_dict()) + "\n")
 
+            if conn:
+                upsert_document(conn, doc, raw_json=record.raw)
+
+                sentence_rows = []
+                mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []
+                co_batches: list[tuple[str, list[tuple[str, str, int]]]] = []
+                for sentence in doc.iter_sentences():
+                    sentence_id = build_sentence_id(doc.doc_id, sentence.section, sentence.index)
+                    sentence_rows.append((sentence_id, sentence))
+
+                    if mention_extractor:
+                        mentions = mention_extractor.extract(sentence.text)
+                        if mentions:
+                            mention_rows = [
+                                (
+                                    f"{sentence_id}:{m.product_canonical}:{m.start_char}-{m.end_char}",
+                                    m.product_canonical,
+                                    m.alias_matched,
+                                    m.start_char,
+                                    m.end_char,
+                                    m.match_method,
+                                )
+                                for m in mentions
+                            ]
+                            mention_batches.append((sentence_id, mention_rows))
+
+                            co_pairs = co_mentions_from_sentence(mentions)
+                            if co_pairs:
+                                co_batches.append((sentence_id, co_pairs))
+
+                if sentence_rows:
+                    insert_sentences(conn, doc.doc_id, sentence_rows)
+                for sentence_id, mention_rows in mention_batches:
+                    insert_mentions(conn, doc.doc_id, sentence_id, mention_rows)
+                for sentence_id, co_pairs in co_batches:
+                    insert_co_mentions(conn, doc.doc_id, sentence_id, co_pairs)
+
     print(f"Ingested {len(results)} documents for query: {query.query}")
     if documents:
         section_counts = sentence_counts_by_section(documents[0])
@@ -245,6 +318,11 @@ def run_ingestion(
         print(f"Mean sentence length (first doc): {mean_len:.1f} chars")
     print(f"Raw records written to: {raw_path}")
     print(f"Structured documents written to: {structured_path}")
+
+    if conn:
+        conn.commit()
+        conn.close()
+        print(f"Persisted documents and mentions to SQLite at {db_path}")
 
 
 def main() -> None:

@@ -5,6 +5,7 @@ from datetime import date
 from typing import Dict, Iterable, List, Optional
 
 from src.ingestion.models import EuropePMCSearchResult
+from src.utils.identifiers import build_document_id
 
 
 @dataclass
@@ -28,6 +29,8 @@ class Section:
 
 @dataclass
 class Document:
+    doc_id: str
+    source: Optional[str] = None
     pmid: Optional[str] = None
     pmcid: Optional[str] = None
     doi: Optional[str] = None
@@ -40,7 +43,17 @@ class Document:
 
     @classmethod
     def from_europe_pmc(cls, record: EuropePMCSearchResult) -> "Document":
+        doc_id = build_document_id(
+            source=record.source,
+            pmid=record.pmid,
+            pmcid=record.pmcid,
+            doi=record.doi,
+            fallback_text=f"{record.title} {record.abstract or ''}",
+        )
+
         return cls(
+            doc_id=doc_id,
+            source=record.source,
             pmid=record.pmid,
             pmcid=record.pmcid,
             doi=record.doi,
@@ -78,6 +91,8 @@ class Document:
             }
 
         return {
+            "doc_id": self.doc_id,
+            "source": self.source,
             "pmid": self.pmid,
             "pmcid": self.pmcid,
             "doi": self.doi,

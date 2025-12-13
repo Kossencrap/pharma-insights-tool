@@ -2,6 +2,7 @@ import argparse
 import json
 import pathlib
 import sys
+import sqlite3
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -46,6 +47,8 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
 
     monkeypatch.setattr(runner, "EuropePMCClient", FakeClient)
 
+    db_path = tmp_path / "store.sqlite"
+
     args = argparse.Namespace(
         from_date=None,
         to_date=None,
@@ -58,6 +61,8 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
         legacy_pagination=False,
         no_proxy=False,
         proxy=None,
+        db=db_path,
+        product_config=pathlib.Path(__file__).resolve().parents[1] / "config" / "products.json",
     )
 
     runner.run_ingestion(["MockProduct"], args, raw_dir=raw_dir, processed_dir=processed_dir)
@@ -81,6 +86,13 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
         structured_records = [json.loads(line) for line in f]
     assert len(structured_records) == 2
     assert structured_records[0]["sections"][0]["sentences"][0]["text"].startswith("Title")
+
+    assert db_path.exists()
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM documents")
+    assert cur.fetchone()[0] == 2
+    conn.close()
 
     output = capsys.readouterr().out
     assert "Ingested 2 documents" in output
@@ -120,6 +132,8 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys):
         legacy_pagination=False,
         no_proxy=False,
         proxy=None,
+        db=None,
+        product_config=None,
     )
 
     runner.run_ingestion(["NoResults"], args, raw_dir=raw_dir, processed_dir=processed_dir)

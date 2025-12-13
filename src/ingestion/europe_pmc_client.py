@@ -26,7 +26,7 @@ class EuropePMCQuery:
     query: str
     page_size: int = 100
     format: str = "json"  # Europe PMC supports json, xml
-    sort: str = "P_PDATE_D"  # publication date descending
+    sort: str = "P_PDATE_D desc"  # publication date descending (Europe PMC requires order)
 
 
 class EuropePMCClient:
@@ -256,7 +256,7 @@ class EuropePMCClient:
             "format": q.format,
             "pageSize": q.page_size,
             "cursorMark": cursor_mark,
-            "sort": q.sort,
+            "sort": self._validate_sort(q.sort),
         }
         r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
         if r.status_code != 200:
@@ -272,7 +272,7 @@ class EuropePMCClient:
             "format": q.format,
             "pageSize": q.page_size,
             "page": page,
-            "sort": q.sort,
+            "sort": self._validate_sort(q.sort),
         }
         r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
         if r.status_code != 200:
@@ -305,12 +305,30 @@ class EuropePMCClient:
         return set(payload.keys()) == {"version"}
 
     @staticmethod
+    def _validate_sort(sort: str) -> str:
+        """Ensure a sort order is explicitly provided.
+
+        Europe PMC requires sort parameters to include the order (``asc`` or ``desc``);
+        omitting it results in a version-only payload instead of results.
+        """
+
+        normalized = sort.strip().lower()
+        if normalized.endswith(" asc") or normalized.endswith(" desc"):
+            return sort
+
+        raise ValueError(
+            "Europe PMC sort must include an explicit order, e.g., 'P_PDATE_D desc'. "
+            f"Got: '{sort}'."
+        )
+
+    @staticmethod
     def _raise_version_stub_error() -> None:
         raise RuntimeError(
-            "Europe PMC returned only a version stub. This usually means the request was "
-            "filtered or rewritten by a proxy or network security device. Try running on a "
-            "different network, adjusting proxy settings, or using --legacy-pagination to "
-            "fall back to page-based requests."
+            "Europe PMC returned only a version stub. Common causes include using an invalid "
+            "sort parameter (it must include an explicit order, e.g., 'P_PDATE_D desc') or a "
+            "proxy/network device filtering the request. Try adding the sort order, running "
+            "on a different network, adjusting proxy settings, or using --legacy-pagination "
+            "to fall back to page-based requests."
         )
 
     # --------------------------

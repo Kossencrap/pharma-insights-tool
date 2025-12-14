@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence
@@ -42,13 +43,17 @@ class MentionExtractor:
         for canonical, aliases in product_aliases.items():
             for alias in aliases:
                 escaped = re.escape(alias)
-                pattern = re.compile(rf"\b{escaped}\b", flags=re.IGNORECASE)
+                plural_suffix = r"(?:['’]s|s|es)?"
+                pattern = re.compile(
+                    rf"\b{escaped}{plural_suffix}\b", flags=re.IGNORECASE
+                )
                 self.patterns.append((canonical, alias, pattern))
 
     def extract(self, text: str) -> List[ProductMention]:
         mentions: List[ProductMention] = []
+        normalized_text = unicodedata.normalize("NFC", text)
         for canonical, alias, pattern in self.patterns:
-            for match in pattern.finditer(text):
+            for match in pattern.finditer(normalized_text):
                 mentions.append(
                     ProductMention(
                         product_canonical=canonical,

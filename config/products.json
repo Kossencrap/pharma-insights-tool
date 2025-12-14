@@ -1,6 +1,8 @@
 {
+  "aspirin": ["aspirin", "acetylsalicylic acid"],
   "dupilumab": ["Dupixent", "dupilumab"],
+  "insulin": ["Insulin", "rapid-acting insulin"],
+  "liraglutide": ["Victoza", "Saxenda", "liraglutide"],
   "metformin": ["Glucophage", "metformin"],
-  "aspirin": ["Aspirin"],
-  "insulin": ["Insulin"]
+  "semaglutide": ["Ozempic", "Rybelsus", "semaglutide"]
 }

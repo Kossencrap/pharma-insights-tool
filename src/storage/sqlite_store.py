@@ -67,7 +67,7 @@ CREATE_TABLES_SQL = [
         product_a TEXT NOT NULL,
         product_b TEXT NOT NULL,
         count INTEGER DEFAULT 1,
-        PRIMARY KEY (sentence_id, product_a, product_b),
+        PRIMARY KEY (doc_id, sentence_id, product_a, product_b),
         FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE,
         FOREIGN KEY (sentence_id) REFERENCES sentences(sentence_id) ON DELETE CASCADE
     )
@@ -100,6 +100,12 @@ CREATE_TABLES_SQL = [
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_co_mentions_sentences_pair ON co_mentions_sentences(product_a, product_b)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_co_mentions_sentences_doc ON co_mentions_sentences(doc_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_co_mentions_sentences_sentence ON co_mentions_sentences(sentence_id)
     """,
 ]
 
@@ -145,8 +151,18 @@ def _ensure_co_mentions_sentences_schema(conn: sqlite3.Connection) -> None:
     rows = conn.execute("PRAGMA table_info(co_mentions_sentences)").fetchall()
     columns = [r[1] for r in rows]
     expected_columns = ["doc_id", "sentence_id", "product_a", "product_b", "count"]
+    expected_pk_positions = {
+        "doc_id": 1,
+        "sentence_id": 2,
+        "product_a": 3,
+        "product_b": 4,
+    }
 
-    if columns != expected_columns:
+    pk_matches = all(
+        row[5] == expected_pk_positions.get(row[1], 0) for row in rows
+    )
+
+    if columns != expected_columns or not pk_matches:
         conn.execute("DROP TABLE co_mentions_sentences")
 
 

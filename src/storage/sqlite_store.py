@@ -73,6 +73,23 @@ CREATE_TABLES_SQL = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS sentence_events (
+        doc_id TEXT NOT NULL,
+        sentence_id TEXT NOT NULL,
+        product_a TEXT NOT NULL,
+        product_b TEXT NOT NULL,
+        comparative_terms TEXT,
+        relationship_types TEXT,
+        risk_terms TEXT,
+        study_context TEXT,
+        matched_terms TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (doc_id, sentence_id, product_a, product_b),
+        FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE,
+        FOREIGN KEY (sentence_id) REFERENCES sentences(sentence_id) ON DELETE CASCADE
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS ingest_status (
         status_key TEXT PRIMARY KEY,
         last_publication_date TEXT,
@@ -107,6 +124,12 @@ CREATE_TABLES_SQL = [
     """
     CREATE INDEX IF NOT EXISTS idx_co_mentions_sentences_sentence ON co_mentions_sentences(sentence_id)
     """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_sentence_events_doc ON sentence_events(doc_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_sentence_events_sentence ON sentence_events(sentence_id)
+    """,
 ]
 
 
@@ -118,6 +141,7 @@ def init_db(path: Path | str) -> sqlite3.Connection:
 
     _ensure_co_mentions_schema(conn)
     _ensure_co_mentions_sentences_schema(conn)
+    _ensure_sentence_events_schema(conn)
     _ensure_ingest_status_schema(conn)
 
     for stmt in CREATE_TABLES_SQL:
@@ -164,6 +188,40 @@ def _ensure_co_mentions_sentences_schema(conn: sqlite3.Connection) -> None:
 
     if columns != expected_columns or not pk_matches:
         conn.execute("DROP TABLE co_mentions_sentences")
+
+
+def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='sentence_events'"
+    )
+    if not cur.fetchone():
+        return
+
+    rows = conn.execute("PRAGMA table_info(sentence_events)").fetchall()
+    columns = [r[1] for r in rows]
+    expected_columns = [
+        "doc_id",
+        "sentence_id",
+        "product_a",
+        "product_b",
+        "comparative_terms",
+        "relationship_types",
+        "risk_terms",
+        "study_context",
+        "matched_terms",
+        "created_at",
+    ]
+    expected_pk_positions = {
+        "doc_id": 1,
+        "sentence_id": 2,
+        "product_a": 3,
+        "product_b": 4,
+    }
+
+    pk_matches = all(row[5] == expected_pk_positions.get(row[1], 0) for row in rows)
+
+    if columns != expected_columns or not pk_matches:
+        conn.execute("DROP TABLE sentence_events")
 
 
 def _ensure_ingest_status_schema(conn: sqlite3.Connection) -> None:
@@ -268,6 +326,58 @@ def insert_co_mentions(
         ) VALUES (?, ?, ?, ?)
         """,
         ((doc_id, a, b, count) for a, b, count in co_mentions),
+    )
+
+
+def insert_sentence_events(
+    conn: sqlite3.Connection,
+    events: Iterable[
+        Tuple[
+            str,
+            str,
+            str,
+            str,
+            Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[str],
+        ]
+    ],
+) -> None:
+    """Persist sentence-level context labels for product pairs."""
+
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO sentence_events (
+            doc_id, sentence_id, product_a, product_b,
+            comparative_terms, relationship_types, risk_terms, study_context, matched_terms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            (
+                doc_id,
+                sentence_id,
+                product_a,
+                product_b,
+                comparative_terms,
+                relationship_types,
+                risk_terms,
+                study_context,
+                matched_terms,
+            )
+            for (
+                doc_id,
+                sentence_id,
+                product_a,
+                product_b,
+                comparative_terms,
+                relationship_types,
+                risk_terms,
+                study_context,
+                matched_terms,
+            ) in events
+        ),
     )
 
 

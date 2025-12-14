@@ -24,11 +24,12 @@ from src.analytics import (
 )
 from src.ingestion.europe_pmc_client import EuropePMCClient, EuropePMCQuery
 from src.storage import (
+    get_ingest_status,
     init_db,
     insert_co_mentions,
+    insert_co_mentions_sentences,
     insert_mentions,
     insert_sentences,
-    get_ingest_status,
     update_ingest_status,
     upsert_document,
 )
@@ -341,6 +342,7 @@ def run_ingestion(
 
                 sentence_rows = []
                 mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []
+                sentence_co_mentions: list[tuple[str, str, str, int]] = []
                 doc_mentions: list[ProductMention] = []
                 for sentence in doc.iter_sentences():
                     sentence_id = build_sentence_id(doc.doc_id, sentence.section, sentence.index)
@@ -350,6 +352,10 @@ def run_ingestion(
                         mentions = mention_extractor.extract(sentence.text)
                         if mentions:
                             doc_mentions.extend(mentions)
+                            sentence_pairs = co_mentions_from_sentence(mentions)
+                            sentence_co_mentions.extend(
+                                (sentence_id, a, b, count) for a, b, count in sentence_pairs
+                            )
                             mention_rows = [
                                 (
                                     f"{sentence_id}:{m.product_canonical}:{m.start_char}-{m.end_char}",
@@ -367,6 +373,8 @@ def run_ingestion(
                     insert_sentences(conn, doc.doc_id, sentence_rows)
                 for sentence_id, mention_rows in mention_batches:
                     insert_mentions(conn, doc.doc_id, sentence_id, mention_rows)
+                if mention_extractor and sentence_co_mentions:
+                    insert_co_mentions_sentences(conn, doc.doc_id, sentence_co_mentions)
                 if mention_extractor and doc_mentions:
                     co_mention_pairs = co_mentions_from_sentence(doc_mentions)
                     if co_mention_pairs:

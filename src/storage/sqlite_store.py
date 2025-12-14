@@ -61,6 +61,18 @@ CREATE_TABLES_SQL = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS co_mentions_sentences (
+        doc_id TEXT NOT NULL,
+        sentence_id TEXT NOT NULL,
+        product_a TEXT NOT NULL,
+        product_b TEXT NOT NULL,
+        count INTEGER DEFAULT 1,
+        PRIMARY KEY (sentence_id, product_a, product_b),
+        FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE,
+        FOREIGN KEY (sentence_id) REFERENCES sentences(sentence_id) ON DELETE CASCADE
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS ingest_status (
         status_key TEXT PRIMARY KEY,
         last_publication_date TEXT,
@@ -86,6 +98,9 @@ CREATE_TABLES_SQL = [
     """
     CREATE INDEX IF NOT EXISTS idx_co_mentions_pair ON co_mentions(product_a, product_b)
     """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_co_mentions_sentences_pair ON co_mentions_sentences(product_a, product_b)
+    """,
 ]
 
 
@@ -96,6 +111,7 @@ def init_db(path: Path | str) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON;")
 
     _ensure_co_mentions_schema(conn)
+    _ensure_co_mentions_sentences_schema(conn)
     _ensure_ingest_status_schema(conn)
 
     for stmt in CREATE_TABLES_SQL:
@@ -117,6 +133,21 @@ def _ensure_co_mentions_schema(conn: sqlite3.Connection) -> None:
 
     if columns != expected_columns:
         conn.execute("DROP TABLE co_mentions")
+
+
+def _ensure_co_mentions_sentences_schema(conn: sqlite3.Connection) -> None:
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='co_mentions_sentences'"
+    )
+    if not cur.fetchone():
+        return
+
+    rows = conn.execute("PRAGMA table_info(co_mentions_sentences)").fetchall()
+    columns = [r[1] for r in rows]
+    expected_columns = ["doc_id", "sentence_id", "product_a", "product_b", "count"]
+
+    if columns != expected_columns:
+        conn.execute("DROP TABLE co_mentions_sentences")
 
 
 def _ensure_ingest_status_schema(conn: sqlite3.Connection) -> None:
@@ -221,6 +252,24 @@ def insert_co_mentions(
         ) VALUES (?, ?, ?, ?)
         """,
         ((doc_id, a, b, count) for a, b, count in co_mentions),
+    )
+
+
+def insert_co_mentions_sentences(
+    conn: sqlite3.Connection,
+    doc_id: str,
+    co_mentions_sentence_rows: Iterable[Tuple[str, str, str, int]],
+) -> None:
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO co_mentions_sentences (
+            doc_id, sentence_id, product_a, product_b, count
+        ) VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            (doc_id, sentence_id, a, b, count)
+            for sentence_id, a, b, count in co_mentions_sentence_rows
+        ),
     )
 
 

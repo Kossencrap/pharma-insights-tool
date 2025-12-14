@@ -20,6 +20,17 @@ python scripts/ingest_europe_pmc.py -p "dupilumab" -p "Dupixent" --from-date 202
 
 Outputs are written to `data/raw/` (raw JSON array) and `data/processed/` (one structured document per line).
 
+### Inspecting co-mentions (document-level)
+After running ingestion with `--db data/europepmc.sqlite`, you can query document-level co-mentions directly from SQLite without storing sentence-level pairs:
+
+```bash
+# Top pairs across documents
+python scripts/query_comentions.py --db data/europepmc.sqlite --limit 25
+
+# Find example documents that mention both products
+python scripts/which_doc.py metformin insulin --db data/europepmc.sqlite
+```
+
 ### Proxy troubleshooting
 If your environment blocks outbound traffic via a corporate proxy, you can disable proxy usage or provide explicit proxy URLs:
 

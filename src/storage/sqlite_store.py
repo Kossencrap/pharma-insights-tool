@@ -260,6 +260,13 @@ def insert_co_mentions_sentences(
     doc_id: str,
     co_mentions_sentence_rows: Iterable[Tuple[str, str, str, int]],
 ) -> None:
+    """
+    Insert sentence-level co-mentions.
+
+    Each row should be a tuple of ``(sentence_id, product_a, product_b, count)``;
+    ``doc_id`` is provided separately to keep the row shape focused on the
+    sentence-level evidence.
+    """
     conn.executemany(
         """
         INSERT OR REPLACE INTO co_mentions_sentences (

@@ -145,3 +145,22 @@ def test_sentence_level_co_mentions_deduplicate_by_sentence(tmp_path):
     ], "Rows should be de-duplicated by sentence/product pair"
 
     conn.close()
+
+
+def test_sentence_level_co_mentions_schema_includes_doc_primary_key(tmp_path):
+    db_path = tmp_path / "pharma.sqlite"
+    conn = init_db(db_path)
+
+    schema_rows = conn.execute("PRAGMA table_info(co_mentions_sentences)").fetchall()
+    pk_positions = {row[1]: row[5] for row in schema_rows}
+
+    assert pk_positions["doc_id"] == 1
+    assert pk_positions["sentence_id"] == 2
+    assert pk_positions["product_a"] == 3
+    assert pk_positions["product_b"] == 4
+
+    index_names = {row[1] for row in conn.execute("PRAGMA index_list('co_mentions_sentences')")}
+    assert "idx_co_mentions_sentences_doc" in index_names
+    assert "idx_co_mentions_sentences_sentence" in index_names
+
+    conn.close()

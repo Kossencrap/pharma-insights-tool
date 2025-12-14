@@ -52,13 +52,11 @@ CREATE_TABLES_SQL = [
     """
     CREATE TABLE IF NOT EXISTS co_mentions (
         doc_id TEXT NOT NULL,
-        sentence_id TEXT NOT NULL,
         product_a TEXT NOT NULL,
         product_b TEXT NOT NULL,
         count INTEGER DEFAULT 1,
-        PRIMARY KEY (doc_id, sentence_id, product_a, product_b),
-        FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE,
-        FOREIGN KEY (sentence_id) REFERENCES sentences(sentence_id) ON DELETE CASCADE
+        PRIMARY KEY (doc_id, product_a, product_b),
+        FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE
     )
     """,
     """
@@ -78,10 +76,28 @@ def init_db(path: Path | str) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON;")
+
+    _ensure_co_mentions_schema(conn)
+
     for stmt in CREATE_TABLES_SQL:
         conn.execute(stmt)
     conn.commit()
     return conn
+
+
+def _ensure_co_mentions_schema(conn: sqlite3.Connection) -> None:
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='co_mentions'"
+    )
+    if not cur.fetchone():
+        return
+
+    rows = conn.execute("PRAGMA table_info(co_mentions)").fetchall()
+    columns = [r[1] for r in rows]
+    expected_columns = ["doc_id", "product_a", "product_b", "count"]
+
+    if columns != expected_columns:
+        conn.execute("DROP TABLE co_mentions")
 
 
 def upsert_document(conn: sqlite3.Connection, document: Document, raw_json: Optional[dict] = None) -> None:
@@ -158,16 +174,13 @@ def insert_mentions(
 
 
 def insert_co_mentions(
-    conn: sqlite3.Connection,
-    doc_id: str,
-    sentence_id: str,
-    co_mentions: Iterable[Tuple[str, str, int]],
+    conn: sqlite3.Connection, doc_id: str, co_mentions: Iterable[Tuple[str, str, int]]
 ) -> None:
     conn.executemany(
         """
         INSERT OR REPLACE INTO co_mentions (
-            doc_id, sentence_id, product_a, product_b, count
-        ) VALUES (?, ?, ?, ?, ?)
+            doc_id, product_a, product_b, count
+        ) VALUES (?, ?, ?, ?)
         """,
-        ((doc_id, sentence_id, a, b, count) for a, b, count in co_mentions),
+        ((doc_id, a, b, count) for a, b, count in co_mentions),
     )

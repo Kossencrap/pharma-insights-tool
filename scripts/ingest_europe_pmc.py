@@ -16,12 +16,20 @@ if str(ROOT) not in sys.path:
 import json
 from src.analytics import (
     MentionExtractor,
+    ProductMention,
+    co_mentions_from_sentence,
     load_product_config,
     mean_sentence_length,
     sentence_counts_by_section,
 )
 from src.ingestion.europe_pmc_client import EuropePMCClient, EuropePMCQuery
-from src.storage import init_db, insert_mentions, insert_sentences, upsert_document
+from src.storage import (
+    init_db,
+    insert_co_mentions,
+    insert_mentions,
+    insert_sentences,
+    upsert_document,
+)
 from src.structuring.sentence_splitter import SentenceSplitter
 from src.utils.identifiers import build_sentence_id
 
@@ -277,6 +285,7 @@ def run_ingestion(
 
                 sentence_rows = []
                 mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []
+                doc_mentions: list[ProductMention] = []
                 for sentence in doc.iter_sentences():
                     sentence_id = build_sentence_id(doc.doc_id, sentence.section, sentence.index)
                     sentence_rows.append((sentence_id, sentence))
@@ -284,6 +293,7 @@ def run_ingestion(
                     if mention_extractor:
                         mentions = mention_extractor.extract(sentence.text)
                         if mentions:
+                            doc_mentions.extend(mentions)
                             mention_rows = [
                                 (
                                     f"{sentence_id}:{m.product_canonical}:{m.start_char}-{m.end_char}",
@@ -301,6 +311,10 @@ def run_ingestion(
                     insert_sentences(conn, doc.doc_id, sentence_rows)
                 for sentence_id, mention_rows in mention_batches:
                     insert_mentions(conn, doc.doc_id, sentence_id, mention_rows)
+                if mention_extractor and doc_mentions:
+                    co_mention_pairs = co_mentions_from_sentence(doc_mentions)
+                    if co_mention_pairs:
+                        insert_co_mentions(conn, doc.doc_id, co_mention_pairs)
 
     print(f"Ingested {len(results)} documents for query: {query.query}")
     if documents:

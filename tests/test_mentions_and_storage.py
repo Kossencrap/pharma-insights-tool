@@ -59,7 +59,7 @@ def test_sqlite_store_persists_documents_sentences_and_mentions(tmp_path):
     sentence_id = build_sentence_id(document.doc_id, "title", 0)
     insert_sentences(conn, document.doc_id, [(sentence_id, section.sentences[0])])
 
-    extractor = MentionExtractor({"dupilumab": ["Dupixent"]})
+    extractor = MentionExtractor({"dupilumab": ["Dupixent"], "insulin": ["insulin"]})
     mentions = extractor.extract(section.sentences[0].text)
 
     insert_mentions(
@@ -78,7 +78,7 @@ def test_sqlite_store_persists_documents_sentences_and_mentions(tmp_path):
             for m in mentions
         ],
     )
-    insert_co_mentions(conn, document.doc_id, sentence_id, co_mentions_from_sentence(mentions))
+    insert_co_mentions(conn, document.doc_id, co_mentions_from_sentence(mentions))
     conn.commit()
 
     cur = conn.cursor()
@@ -89,6 +89,9 @@ def test_sqlite_store_persists_documents_sentences_and_mentions(tmp_path):
     assert cur.fetchone()[0] == sentence_id
 
     cur.execute("SELECT product_canonical, alias_matched FROM product_mentions")
-    assert cur.fetchone() == ("dupilumab", "Dupixent")
+    assert cur.fetchall() == [("dupilumab", "Dupixent"), ("insulin", "insulin")]
+
+    cur.execute("SELECT doc_id, product_a, product_b, count FROM co_mentions")
+    assert cur.fetchone() == (document.doc_id, "dupilumab", "insulin", 1)
 
     conn.close()

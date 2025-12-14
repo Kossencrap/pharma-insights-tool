@@ -20,6 +20,15 @@ python scripts/ingest_europe_pmc.py -p "dupilumab" -p "Dupixent" --from-date 202
 
 Outputs are written to `data/raw/` (raw JSON array) and `data/processed/` (one structured document per line).
 
+For repeat runs, you can enable incremental ingestion and persist a watermark in SQLite:
+
+```bash
+python scripts/ingest_europe_pmc.py -p "dupilumab" --db data/europepmc.sqlite --incremental
+```
+
+The default status key is derived from the product list plus review/trial filters, but you can override it with
+`--status-key` when you need multiple independent watermarks.
+
 ### Inspecting co-mentions (document-level)
 After running ingestion with `--db data/europepmc.sqlite`, you can query document-level co-mentions directly from SQLite without storing sentence-level pairs:
 

@@ -28,6 +28,8 @@ from src.storage import (
     insert_co_mentions,
     insert_mentions,
     insert_sentences,
+    get_ingest_status,
+    update_ingest_status,
     upsert_document,
 )
 from src.structuring.sentence_splitter import SentenceSplitter
@@ -39,6 +41,11 @@ PROCESSED_DIR = Path("data/processed")
 
 def _slug(text: str) -> str:
     return "_".join(text.lower().split())
+
+
+def _default_status_key(product_names: List[str], include_reviews: bool, include_trials: bool) -> str:
+    base = "-".join(sorted(p.lower() for p in product_names))
+    return f"{base}|reviews={int(include_reviews)}|trials={int(include_trials)}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +66,15 @@ def parse_args() -> argparse.Namespace:
         "--to-date",
         type=date.fromisoformat,
         help="Upper bound publication date (YYYY-MM-DD)",
+    )
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Resume from the last stored publication date for this query key.",
+    )
+    parser.add_argument(
+        "--status-key",
+        help="Override the default status key used for incremental ingestion state.",
     )
     parser.add_argument(
         "--max-records",
@@ -184,6 +200,46 @@ def run_ingestion(
             f"No product config found at {product_config}; skipping mention extraction while still writing documents to DB."
         )
 
+    incremental = getattr(args, "incremental", False)
+    status_key = getattr(args, "status_key", None)
+    resolved_status_key = None
+    effective_from_date = args.from_date
+
+    if incremental:
+        if conn is None:
+            print("Incremental ingestion requires --db to be set.", file=sys.stderr)
+            raise SystemExit(2)
+
+        resolved_status_key = status_key or _default_status_key(
+            product_names, args.include_reviews, args.include_trials
+        )
+        stored_status = get_ingest_status(conn, resolved_status_key)
+
+        if stored_status:
+            last_publication_date, last_pmid = stored_status
+            if last_publication_date:
+                if effective_from_date is None or last_publication_date > effective_from_date:
+                    effective_from_date = last_publication_date
+            if effective_from_date:
+                print(
+                    "Incremental mode active: resuming from publication date "
+                    f"{effective_from_date} using status key '{resolved_status_key}'."
+                )
+            else:
+                print(
+                    "Incremental mode active but no stored publication watermark found; "
+                    f"status key '{resolved_status_key}'."
+                )
+            if last_pmid:
+                print(f"Last ingested PMID for this key: {last_pmid}")
+        else:
+            print(
+                "Incremental mode active with no previous status; starting fresh from provided filters."
+            )
+    else:
+        if status_key:
+            resolved_status_key = status_key
+
     proxy_args = getattr(args, "proxy", None)
     no_proxy = getattr(args, "no_proxy", False)
 
@@ -215,7 +271,7 @@ def run_ingestion(
     query_str = client.build_drug_query(
         product_names=product_names,
         require_abstract=True,
-        from_date=args.from_date,
+        from_date=effective_from_date,
         to_date=args.to_date,
         include_reviews=args.include_reviews,
         include_trials=args.include_trials,
@@ -322,6 +378,36 @@ def run_ingestion(
         mean_len = mean_sentence_length(documents[0])
         print(f"Example sentence counts: {section_counts}")
         print(f"Mean sentence length (first doc): {mean_len:.1f} chars")
+
+    latest_pub_date = max(
+        (doc.publication_date for doc in documents if doc.publication_date),
+        default=None,
+    )
+    latest_pmid = None
+    if latest_pub_date:
+        for doc in sorted(
+            documents,
+            key=lambda d: (d.publication_date or date.min, d.pmid or ""),
+            reverse=True,
+        ):
+            if doc.publication_date == latest_pub_date:
+                latest_pmid = doc.pmid
+                break
+
+    if incremental and conn:
+        status_identifier = resolved_status_key or _default_status_key(
+            product_names, args.include_reviews, args.include_trials
+        )
+        update_ingest_status(
+            conn,
+            status_identifier,
+            last_publication_date=latest_pub_date,
+            last_pmid=latest_pmid,
+        )
+        print(
+            "Updated incremental status "
+            f"({status_identifier}) to publication date {latest_pub_date}"
+        )
     print(f"Raw records written to: {raw_path}")
     print(f"Structured documents written to: {structured_path}")
 

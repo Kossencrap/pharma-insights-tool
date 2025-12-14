@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import date
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
@@ -60,6 +61,17 @@ CREATE_TABLES_SQL = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS ingest_status (
+        status_key TEXT PRIMARY KEY,
+        last_publication_date TEXT,
+        last_pmid TEXT,
+        last_run_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_documents_pmid ON documents(pmid)
+    """,
+    """
     CREATE INDEX IF NOT EXISTS idx_sentences_doc ON sentences(doc_id)
     """,
     """
@@ -67,6 +79,12 @@ CREATE_TABLES_SQL = [
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_mentions_doc ON product_mentions(doc_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_mentions_sentence ON product_mentions(sentence_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_co_mentions_pair ON co_mentions(product_a, product_b)
     """,
 ]
 
@@ -78,6 +96,7 @@ def init_db(path: Path | str) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON;")
 
     _ensure_co_mentions_schema(conn)
+    _ensure_ingest_status_schema(conn)
 
     for stmt in CREATE_TABLES_SQL:
         conn.execute(stmt)
@@ -98,6 +117,25 @@ def _ensure_co_mentions_schema(conn: sqlite3.Connection) -> None:
 
     if columns != expected_columns:
         conn.execute("DROP TABLE co_mentions")
+
+
+def _ensure_ingest_status_schema(conn: sqlite3.Connection) -> None:
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='ingest_status'"
+    )
+    if cur.fetchone():
+        return
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ingest_status (
+            status_key TEXT PRIMARY KEY,
+            last_publication_date TEXT,
+            last_pmid TEXT,
+            last_run_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
 
 
 def upsert_document(conn: sqlite3.Connection, document: Document, raw_json: Optional[dict] = None) -> None:
@@ -183,4 +221,42 @@ def insert_co_mentions(
         ) VALUES (?, ?, ?, ?)
         """,
         ((doc_id, a, b, count) for a, b, count in co_mentions),
+    )
+
+
+def get_ingest_status(
+    conn: sqlite3.Connection, status_key: str
+) -> Optional[tuple[Optional[date], Optional[str]]]:
+    row = conn.execute(
+        "SELECT last_publication_date, last_pmid FROM ingest_status WHERE status_key = ?",
+        (status_key,),
+    ).fetchone()
+    if not row:
+        return None
+
+    last_date = date.fromisoformat(row[0]) if row[0] else None
+    return last_date, row[1]
+
+
+def update_ingest_status(
+    conn: sqlite3.Connection,
+    status_key: str,
+    *,
+    last_publication_date: Optional[date],
+    last_pmid: Optional[str],
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO ingest_status (status_key, last_publication_date, last_pmid, last_run_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(status_key) DO UPDATE SET
+            last_publication_date=excluded.last_publication_date,
+            last_pmid=excluded.last_pmid,
+            last_run_at=CURRENT_TIMESTAMP
+        """,
+        (
+            status_key,
+            last_publication_date.isoformat() if last_publication_date else None,
+            last_pmid,
+        ),
     )

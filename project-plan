@@ -52,7 +52,7 @@ These questions drive all technical design decisions.
 ________________________________________
 4. Data Sources (Authoritative, Traceable)
 4.1 Primary source (MVP)
-•	NCBI PubMed / PubMed Central
+•Europe PMC
 o	Abstracts
 o	Full text where available
 o	Metadata (date, journal, authors, country)
@@ -84,7 +84,7 @@ Explicitly not required
 ________________________________________
 5.3 Model strategy (Codex guidance)
 •	Start with pretrained HF biomedical encoders
-o	SciBERT / PubMedBERT
+o	SciBERT / Europe PMCBERT
 •	Prefer lightweight classifiers over generative models
 •	Fine-tune only where signal density justifies it
 Key rule:
@@ -162,7 +162,7 @@ ________________________________________
 11. MVP Definition (Strict)
 MVP is complete if:
 1.	One real drug can be selected
-2.	PubMed data is ingested
+2.	Europe PMC data is ingested
 3.	Narrative & sentiment trends are extracted
 4.	Competitive co-mentions are visible
 5.	All insights link back to source text

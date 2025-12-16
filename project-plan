@@ -1,0 +1,199 @@
+________________________________________
+Project Plan
+Product-Centric Scientific & Narrative Intelligence Platform for Pharma
+________________________________________
+0. Project Scope (Non-Negotiable Constraints)
+In scope
+•	Existing marketed products
+•	Late-stage / near-launch products (Phase IIb–III)
+•	Textual insights only (literature, narratives, perception)
+Explicitly out of scope
+•	❌ Genes, pathways, targets
+•	❌ Mechanistic inference
+•	❌ Discovery biology
+•	❌ Clinical decision support or recommendations
+Positioning:
+Evidence-linked intelligence, not medical advice.
+________________________________________
+1. Primary Objective
+Build a system that continuously extracts, structures, and visualizes actionable insights about pharmaceutical products from scientific literature, with full traceability to source text.
+The system must answer:
+“What is changing in how this product is discussed, evaluated, and positioned — scientifically and competitively?”
+________________________________________
+2. Core User Personas & Decisions
+2.1 Medical Affairs
+•	Detect emerging narratives (efficacy, safety, use cases)
+•	Identify misalignment with internal messaging
+•	Prepare scientific exchange with KOLs
+2.2 Competitive Intelligence
+•	Monitor competitor products
+•	Detect differentiation erosion or strengthening
+•	Identify early positioning shifts
+2.3 Launch / Commercial Strategy
+•	Track external framing pre- and post-launch
+•	Detect unexpected concerns or off-label narratives
+•	Monitor geographic differences in perception
+________________________________________
+3. Key Questions the System Must Answer (MVP)
+For a given product:
+1.	Volume & momentum
+o	Is literature attention increasing or decreasing?
+2.	Narrative direction
+o	Is sentiment shifting (positive / neutral / negative)?
+3.	Positioning
+o	How is the product framed (line of therapy, role, alternatives)?
+4.	Safety perception
+o	Are certain risks increasingly emphasized?
+5.	Competition
+o	Which products are co-mentioned, and in what context?
+6.	Change detection
+o	What is new or different vs last quarter?
+These questions drive all technical design decisions.
+________________________________________
+4. Data Sources (Authoritative, Traceable)
+4.1 Primary source (MVP)
+•	NCBI PubMed / PubMed Central
+o	Abstracts
+o	Full text where available
+o	Metadata (date, journal, authors, country)
+4.2 Optional (Phase 2)
+•	ClinicalTrials.gov (results language only)
+•	Regulatory documents (labels, briefing docs)
+•	Conference abstracts (ASCO, ESMO, etc.)
+Design principle:
+Raw data is never discarded; all transformations are reversible.
+________________________________________
+5. NLP & Analytics Pipeline (HF-based)
+5.1 Processing mode
+•	Offline batch processing
+•	No live LLM calls for dashboards
+•	Deterministic, reproducible pipelines
+________________________________________
+5.2 NLP tasks (minimal but sufficient)
+Task	Purpose
+Drug name recognition	Anchor all analysis to products
+Indication extraction (textual)	Understand use cases
+Sentiment / stance classification	Narrative direction
+Comparative language detection	Competitive positioning
+Risk framing detection	Safety perception
+Temporal aggregation	Change over time
+Explicitly not required
+•	No gene NER
+•	No pathway graphs
+•	No causal inference
+________________________________________
+5.3 Model strategy (Codex guidance)
+•	Start with pretrained HF biomedical encoders
+o	SciBERT / PubMedBERT
+•	Prefer lightweight classifiers over generative models
+•	Fine-tune only where signal density justifies it
+Key rule:
+If a human cannot explain the output, the model is too complex.
+________________________________________
+6. Evidence & Trust Layer (Core Differentiator)
+Every extracted insight must link to:
+•	Exact sentence(s)
+•	Publication ID
+•	Publication type (review, RCT, observational, case report)
+•	Date
+•	Journal
+6.1 Evidence weighting (heuristic MVP)
+Score dimensions:
+•	Recency
+•	Study type
+•	Repetition across independent sources
+•	Sentiment consistency vs contradiction
+No single “truth score” — show distributions.
+________________________________________
+7. Data Model (Conceptual)
+You will implement something close to:
+•	documents
+•	sentences
+•	products
+•	mentions
+•	comparisons
+•	sentiment_events
+•	risk_events
+•	time_buckets
+Design requirement:
+Time-aware by default → enable “what changed since X”.
+________________________________________
+8. Dashboards (User-Facing MVP)
+8.1 Product Intelligence Dashboard
+For one product:
+•	Publication volume over time
+•	Sentiment trend
+•	New indication mentions
+•	Safety narrative evolution
+•	Competitive co-mentions
+8.2 Change-Since-Last-Review View
+•	New narratives
+•	Newly emerging risks
+•	Shifts in comparative language
+This is the killer feature.
+________________________________________
+9. System Architecture (High Level)
+NCBI APIs
+   ↓
+Raw Storage (versioned)
+   ↓
+NLP Processing (HF, batch)
+   ↓
+Structured Evidence Tables
+   ↓
+Analytics / Aggregation Layer
+   ↓
+Dashboards & Alerts
+________________________________________
+10. Non-Functional Requirements
+10.1 Reproducibility
+•	Deterministic pipelines
+•	Versioned data & models
+10.2 Transparency
+•	Sentence-level provenance
+•	No hallucinated summaries
+10.3 Scalability
+•	Add new products without reprocessing all data
+10.4 Compliance posture
+•	Read-only literature analysis
+•	No treatment advice
+•	Clear disclaimers
+________________________________________
+11. MVP Definition (Strict)
+MVP is complete if:
+1.	One real drug can be selected
+2.	PubMed data is ingested
+3.	Narrative & sentiment trends are extracted
+4.	Competitive co-mentions are visible
+5.	All insights link back to source text
+Anything beyond this is Phase 2.
+________________________________________
+12. How to Use This with Codex (Practical Guidance)
+When working with Codex:
+•	Always reference which section you are implementing
+•	Ask Codex for:
+o	Modular code
+o	Clear interfaces
+o	Deterministic behavior
+•	Reject:
+o	“End-to-end magic”
+o	Large prompt-based summarization
+o	Untraceable outputs
+Example Codex prompt
+“Implement Section 5.2: sentiment and comparative language extraction as a batch pipeline with sentence-level outputs and deterministic results.”
+________________________________________
+13. Go / No-Go Criteria
+Proceed only if:
+•	Insights feel decision-relevant, not descriptive
+•	Users trust outputs without explanation
+•	Change detection works reliably
+Stop if:
+•	Outputs resemble generic summaries
+•	Evidence traceability breaks
+•	Models become opaque
+________________________________________
+14. Final Positioning Statement (Internal)
+“We do not predict outcomes.
+We reveal how the scientific and clinical narrative around products is evolving — with evidence.”
+________________________________________
+

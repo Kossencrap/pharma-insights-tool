@@ -1,0 +1,27 @@
+# PowerShell functional checks
+
+`functional_checks.ps1` biedt één commandorunbook om snel te controleren of de belangrijkste functionaliteiten van dit project werken.
+
+## Gebruik
+
+Voer het script vanuit de projectroot:
+
+```powershell
+pwsh ./powershell/functional_checks.ps1
+```
+
+Standaard acties:
+- Draait `pytest` om de unit/integratietests te draaien.
+- Voert een kleine Europe PMC-ingestie uit voor een voorbeeldproduct en slaat resultaten op in `data/powershell-checks/europepmc.sqlite`.
+- Draait `query_comentions.py` en `which_doc.py` tegen die database als functionele check.
+
+### Handige vlaggen
+
+- `-PythonExe` – kies een andere Python-binary, bijv. `python` i.p.v. `py`.
+- `-DataRoot` – wijzig het pad waar de tijdelijke database wordt opgeslagen.
+- `-Products` – pas de lijst met zoektermen aan (array), bijv. `-Products "aspirin","ibuprofen"`.
+- `-SkipPytests` – sla de `pytest`-stap over.
+- `-SkipNetworkSteps` – sla ingestie én downstream queries over (handig offline).
+- `-SkipFunctionalQueries` – sla alleen de query-scripts over na ingestie.
+
+Breid het script uit met extra controles zodra er nieuwe functionaliteit bijkomt.

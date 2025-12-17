@@ -3,6 +3,83 @@
 Product-centric scientific and narrative intelligence
 based on biomedical literature.
 
+## Project structure
+
+```
+pharma-insights-tool/
+├── README.md                        # Project overview, setup, and structure
+├── .env.example                     # Sample environment variables for local runs
+├── .gitignore                       # Ignored files and directories for git
+├── pyproject.toml                   # Core Python packaging and dependency metadata
+├── setup.py                         # Packaging entrypoint delegating to pyproject
+├── project-plan                     # Narrative requirements and MVP scope document
+├── config/                          # Config files that drive ingestion and scoring
+│   ├── products.json                # Example product list with IDs and synonyms
+│   └── study_type_weights.json      # Heuristic weights for study-type evidence
+├── data/                            # Git-ignored datasets and generated outputs
+│   ├── artifacts/                   # Derived assets (charts, metrics, exports)
+│   │   └── .gitkeep                 # Placeholder to keep folder in repo
+│   ├── processed/                   # Normalized JSONL documents from structuring
+│   │   └── .gitkeep
+│   └── raw/                         # Raw Europe PMC payloads
+│       └── .gitkeep
+├── notebooks/                       # Jupyter notebooks for exploratory analysis
+│   └── exploration/                 # Sandbox for experimentation
+│       └── .gitkeep
+├── powershell/                      # Windows-friendly helper utilities
+│   ├── README.md                    # Instructions to run PowerShell checks
+│   └── functional_checks.ps1        # Convenience validation script for Windows
+├── scripts/                         # CLI entry points for ingestion and analysis
+│   ├── aggregate_metrics.py         # Aggregate and export run-level metrics
+│   ├── export_batch.py              # Persist structured outputs (JSONL/SQLite)
+│   ├── ingest_europe_pmc.py         # Pull Europe PMC data with product filters
+│   ├── label_sentence_events.py     # Apply heuristic context labels to sentences
+│   ├── query_comentions.py          # Query product co-mentions from SQLite
+│   ├── show_sentence_evidence.py    # Display labeled sentence evidence
+│   ├── split_sentences.py           # Deterministic sentence segmentation helper
+│   └── which_doc.py                 # Locate example documents for product pairs
+├── src/                             # Application source code
+│   ├── __init__.py                  # Package marker
+│   ├── analytics/                   # Analytics and labeling logic
+│   │   ├── __init__.py              # Analytics package marker
+│   │   ├── context_labels.py        # Rule-based context labeling of sentences
+│   │   ├── mention_extractor.py     # Product mention extraction from sentences
+│   │   ├── time_series.py           # Time-series metrics for literature trends
+│   │   └── weights.py               # Weighting helpers for evidence scoring
+│   ├── ingestion/                   # Europe PMC ingestion and query helpers
+│   │   ├── __init__.py              # Ingestion package marker
+│   │   ├── europe_pmc_client.py     # Requests client with retry/pagination logic
+│   │   └── models.py                # Typed ingestion models (queries, results)
+│   ├── models/                      # Shared data models
+│   │   └── __init__.py              # Model package marker
+│   ├── storage/                     # Persistence layer
+│   │   ├── __init__.py              # Storage package marker
+│   │   └── sqlite_store.py          # SQLite helpers for storing documents
+│   ├── structuring/                 # Sentence and document structuring
+│   │   ├── __init__.py              # Structuring package marker
+│   │   ├── models.py                # Structured representations of documents
+│   │   └── sentence_splitter.py     # Deterministic sentence splitter utility
+│   └── utils/                       # Shared utilities
+│       ├── __init__.py              # Utils package marker
+│       └── identifiers.py           # Identifier normalization helpers
+└── tests/                           # Automated tests covering ingestion and analytics
+    ├── conftest.py                  # Pytest fixtures shared across suites
+    ├── test_co_mentions_sentence_level.py  # Co-mention coverage at sentence level
+    ├── test_context_labels.py       # Validation for context label heuristics
+    ├── test_export_batch.py         # Export pipeline validation
+    ├── test_ingestion.py            # End-to-end ingestion runner checks
+    ├── test_ingestion_runner.py     # Europe PMC runner integration tests
+    ├── test_mentions_and_storage.py # Mention extraction + storage integration
+    ├── test_structuring.py          # Sentence structuring behaviour checks
+    ├── test_time_series_metrics.py  # Time-series metric computation tests
+    ├── analytics/                   # Analytics-focused test helpers
+    │   └── test_weights.py          # Evidence weighting test cases
+    ├── ingestion/                   # Ingestion-specific fixtures/tests
+    │   └── test_europe_pmc_client.py# HTTP client, retry, and query tests
+    └── structuring/                 # Structuring-specific fixtures/tests
+        └── __init__.py              # Fixture namespace marker
+```
+
 ## Current scope
 - Literature ingestion from Europe PMC
 - Deterministic sentence structuring

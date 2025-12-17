@@ -13,7 +13,9 @@ pwsh ./powershell/functional_checks.ps1
 Standaard acties:
 - Draait `pytest` om de unit/integratietests te draaien.
 - Voert een kleine Europe PMC-ingestie uit voor een voorbeeldproduct en slaat resultaten op in `data/powershell-checks/europepmc.sqlite`.
-- Draait `query_comentions.py` en `which_doc.py` tegen die database als functionele check.
+- Labelt co-mention-zinnen met `label_sentence_events.py`.
+- Berekent wekelijkse/maandelijkse metrics met `aggregate_metrics.py`.
+- Draait `query_comentions.py`, `which_doc.py` en `show_sentence_evidence.py` tegen die database als functionele check.
 
 ### Handige vlaggen
 

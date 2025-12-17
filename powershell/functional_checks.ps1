@@ -68,6 +68,39 @@ function Run-Ingestion {
     Invoke-ExternalCommand -Executable $PythonExe -Arguments $ingestArgs
 }
 
+function Run-LabelSentenceEvents {
+    if ($SkipNetworkSteps) {
+        Write-Host "Skipping sentence-event labeling (SkipNetworkSteps set)." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Heading "Labeling sentence co-mentions"
+    $dbPath = Join-Path $DataRoot "europepmc.sqlite"
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        'scripts/label_sentence_events.py',
+        '--db', $dbPath,
+        '--limit', '500',
+        '--only-missing'
+    )
+}
+
+function Run-AggregateMetrics {
+    if ($SkipNetworkSteps) {
+        Write-Host "Skipping metric aggregation (SkipNetworkSteps set)." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Heading "Aggregating weekly/monthly metrics"
+    $dbPath = Join-Path $DataRoot "europepmc.sqlite"
+    $outDir = Join-Path $DataRoot "metrics"
+    Ensure-Directory -Path $outDir
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        'scripts/aggregate_metrics.py',
+        '--db', $dbPath,
+        '--outdir', $outDir
+    )
+}
+
 function Run-Queries {
     if ($SkipNetworkSteps -or $SkipFunctionalQueries) {
         Write-Host "Skipping functional queries (SkipNetworkSteps or SkipFunctionalQueries set)." -ForegroundColor Yellow
@@ -80,6 +113,15 @@ function Run-Queries {
 
     Write-Heading "Inspecting example documents for two products"
     Invoke-ExternalCommand -Executable $PythonExe -Arguments @('scripts/which_doc.py', $Products[0], $Products[-1], '--db', $dbPath)
+
+    Write-Heading "Showing labeled sentence evidence"
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        'scripts/show_sentence_evidence.py',
+        '--db', $dbPath,
+        '--product-a', $Products[0],
+        '--product-b', $Products[-1],
+        '--limit', '10'
+    )
 }
 
 Write-Heading "Starting functional PowerShell checks"
@@ -90,6 +132,8 @@ Write-Host "Max records per ingestion: $MaxRecords" -ForegroundColor DarkGray
 
 Run-Pytests
 Run-Ingestion
+Run-LabelSentenceEvents
+Run-AggregateMetrics
 Run-Queries
 
 Write-Heading "All checks completed"

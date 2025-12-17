@@ -18,7 +18,9 @@ from src.analytics import (
     MentionExtractor,
     ProductMention,
     co_mentions_from_sentence,
+    compute_document_weight,
     load_product_config,
+    load_study_type_weights,
     mean_sentence_length,
     sentence_counts_by_section,
 )
@@ -32,12 +34,14 @@ from src.storage import (
     insert_sentences,
     update_ingest_status,
     upsert_document,
+    upsert_document_weight,
 )
 from src.structuring.sentence_splitter import SentenceSplitter
 from src.utils.identifiers import build_sentence_id
 
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
+STUDY_WEIGHT_CONFIG = ROOT / "config" / "study_type_weights.json"
 
 
 def _slug(text: str) -> str:
@@ -155,6 +159,12 @@ def parse_args() -> argparse.Namespace:
         default=ROOT / "config" / "products.json",
         help="Path to product dictionary JSON for deterministic mention extraction.",
     )
+    parser.add_argument(
+        "--study-weight-config",
+        type=Path,
+        default=STUDY_WEIGHT_CONFIG,
+        help="Path to study type weight mapping (JSON).",
+    )
     return parser.parse_args()
 
 
@@ -199,6 +209,18 @@ def run_ingestion(
     elif db_path:
         print(
             f"No product config found at {product_config}; skipping mention extraction while still writing documents to DB."
+        )
+
+    study_weight_config: Path | None = getattr(args, "study_weight_config", None)
+    study_weight_lookup: dict[str, float] = {}
+    if study_weight_config and study_weight_config.exists():
+        study_weight_lookup = load_study_type_weights(study_weight_config)
+        print(
+            f"Loaded {len(study_weight_lookup)} study type weights from {study_weight_config}."
+        )
+    elif study_weight_config:
+        print(
+            f"Study weight config not found at {study_weight_config}; defaulting to recency-only weights."
         )
 
     incremental = getattr(args, "incremental", False)
@@ -339,6 +361,13 @@ def run_ingestion(
 
             if conn:
                 upsert_document(conn, doc, raw_json=record.raw)
+                weight = compute_document_weight(
+                    doc_id=doc.doc_id,
+                    publication_date=doc.publication_date,
+                    raw_metadata=record.raw,
+                    weight_lookup=study_weight_lookup,
+                )
+                upsert_document_weight(conn, weight)
 
                 sentence_rows = []
                 mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []

@@ -8,6 +8,7 @@ from .sqlite_store import (
     insert_sentences,
     update_ingest_status,
     upsert_document,
+    upsert_document_weight,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "insert_sentences",
     "update_ingest_status",
     "upsert_document",
+    "upsert_document_weight",
 ]

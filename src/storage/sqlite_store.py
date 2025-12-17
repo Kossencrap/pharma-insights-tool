@@ -6,6 +6,8 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
+from src.analytics.weights import DocumentWeight
+
 from src.structuring.models import Document, Sentence
 
 CREATE_TABLES_SQL = [
@@ -22,6 +24,17 @@ CREATE_TABLES_SQL = [
         publication_date TEXT,
         pub_year INTEGER,
         raw_json TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS document_weights (
+        doc_id TEXT PRIMARY KEY,
+        recency_weight REAL,
+        study_type TEXT,
+        study_type_weight REAL,
+        combined_weight REAL,
+        computed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE
     )
     """,
     """
@@ -132,6 +145,45 @@ CREATE_TABLES_SQL = [
     """,
 ]
 
+CREATE_VIEWS_SQL = [
+    """
+    CREATE VIEW IF NOT EXISTS co_mentions_weighted AS
+    SELECT
+        cm.doc_id,
+        cm.product_a,
+        cm.product_b,
+        cm.count,
+        COALESCE(dw.recency_weight, 1.0) AS recency_weight,
+        dw.study_type,
+        COALESCE(dw.study_type_weight, 1.0) AS study_type_weight,
+        COALESCE(dw.combined_weight, COALESCE(dw.recency_weight, 1.0)) AS weight,
+        cm.count
+            * COALESCE(dw.combined_weight, COALESCE(dw.recency_weight, 1.0)) AS weighted_count
+    FROM co_mentions cm
+    LEFT JOIN document_weights dw ON cm.doc_id = dw.doc_id
+    """,
+    """
+    CREATE VIEW IF NOT EXISTS sentence_events_weighted AS
+    SELECT
+        se.doc_id,
+        se.sentence_id,
+        se.product_a,
+        se.product_b,
+        se.comparative_terms,
+        se.relationship_types,
+        se.risk_terms,
+        se.study_context,
+        se.matched_terms,
+        se.created_at,
+        COALESCE(dw.recency_weight, 1.0) AS recency_weight,
+        dw.study_type,
+        COALESCE(dw.study_type_weight, 1.0) AS study_type_weight,
+        COALESCE(dw.combined_weight, COALESCE(dw.recency_weight, 1.0)) AS weight
+    FROM sentence_events se
+    LEFT JOIN document_weights dw ON se.doc_id = dw.doc_id
+    """,
+]
+
 
 def init_db(path: Path | str) -> sqlite3.Connection:
     db_path = Path(path)
@@ -145,6 +197,8 @@ def init_db(path: Path | str) -> sqlite3.Connection:
     _ensure_ingest_status_schema(conn)
 
     for stmt in CREATE_TABLES_SQL:
+        conn.execute(stmt)
+    for stmt in CREATE_VIEWS_SQL:
         conn.execute(stmt)
     conn.commit()
     return conn
@@ -262,6 +316,29 @@ def upsert_document(conn: sqlite3.Connection, document: Document, raw_json: Opti
             document.publication_date.isoformat() if document.publication_date else None,
             document.pub_year,
             json.dumps(raw_json) if raw_json is not None else None,
+        ),
+    )
+
+
+def upsert_document_weight(conn: sqlite3.Connection, weight: DocumentWeight) -> None:
+    conn.execute(
+        """
+        INSERT INTO document_weights (
+            doc_id, recency_weight, study_type, study_type_weight, combined_weight, computed_at
+        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(doc_id) DO UPDATE SET
+            recency_weight=excluded.recency_weight,
+            study_type=excluded.study_type,
+            study_type_weight=excluded.study_type_weight,
+            combined_weight=excluded.combined_weight,
+            computed_at=CURRENT_TIMESTAMP
+        """,
+        (
+            weight.doc_id,
+            weight.recency_weight,
+            weight.study_type,
+            weight.study_type_weight,
+            weight.combined_weight,
         ),
     )
 

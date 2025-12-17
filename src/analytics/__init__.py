@@ -11,6 +11,7 @@ from .mention_extractor import (
     co_mentions_from_sentence,
     load_product_config,
 )
+from .time_series import TimeSeriesConfig, add_change_metrics, bucket_counts
 
 
 def sentence_counts_by_section(document: Document) -> Dict[str, int]:
@@ -36,4 +37,7 @@ __all__ = [
     "load_product_config",
     "mean_sentence_length",
     "sentence_counts_by_section",
+    "TimeSeriesConfig",
+    "add_change_metrics",
+    "bucket_counts",
 ]

@@ -11,6 +11,7 @@ from .mention_extractor import (
     co_mentions_from_sentence,
     load_product_config,
 )
+from .time_series import TimeSeriesConfig, add_change_metrics, bucket_counts
 from .weights import (
     DocumentWeight,
     compute_document_weight,
@@ -50,4 +51,7 @@ __all__ = [
     "load_study_type_weights",
     "map_study_type",
     "sentence_counts_by_section",
+    "TimeSeriesConfig",
+    "add_change_metrics",
+    "bucket_counts",
 ]

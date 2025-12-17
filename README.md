@@ -78,6 +78,41 @@ pharma-insights-tool/
     │   └── test_europe_pmc_client.py# HTTP client, retry, and query tests
     └── structuring/                 # Structuring-specific fixtures/tests
         └── __init__.py              # Fixture namespace marker
+├── README.md                     # Project overview and usage
+├── project-plan                  # Narrative requirements and MVP scope
+├── pyproject.toml, setup.py      # Python packaging and dependency metadata
+├── config/                       # Configuration for local runs and weights
+│   ├── products.json             # Sample product list for ingestion
+│   └── study_type_weights.json   # Heuristics for evidence weighting
+├── data/                         # Datasets and generated artifacts (gitignored)
+│   ├── raw/                      # Raw Europe PMC exports
+│   ├── processed/                # Structured documents (one JSONL per run)
+│   └── artifacts/                # Auxiliary outputs (e.g., charts, metrics)
+├── notebooks/
+│   └── exploration/.gitkeep      # Placeholder for exploratory notebooks
+├── scripts/                      # CLI entry points for ingestion and analysis
+│   ├── aggregate_metrics.py      # Aggregate and export run metrics
+│   ├── export_batch.py           # Persist structured outputs to disk
+│   ├── ingest_europe_pmc.py      # Pull Europe PMC data with product filters
+│   ├── label_sentence_events.py  # Apply heuristic labels to sentences
+│   ├── query_comentions.py       # Query product co-mentions from SQLite
+│   ├── show_sentence_evidence.py # Display evidence for labeled sentences
+│   ├── split_sentences.py        # Deterministic sentence segmentation
+│   └── which_doc.py              # Find example documents for product pairs
+├── powershell/                   # Windows-friendly helpers
+│   ├── README.md                 # How to run PowerShell checks
+│   └── functional_checks.ps1     # Convenience script for local validation
+├── src/                          # Application code
+│   ├── ingestion/                # Europe PMC ingestion and parsing
+│   ├── structuring/              # Sentence and document structuring helpers
+│   ├── analytics/                # Co-mention queries and analytics routines
+│   ├── storage/                  # Persistence utilities (e.g., SQLite helpers)
+│   ├── utils/                    # Shared utilities and logging helpers
+│   └── models/                   # Typed data models and schemas
+└── tests/                        # Unit tests for ingestion, structuring, analytics
+    ├── ingestion/
+    ├── structuring/
+    └── analytics/
 ```
 
 ## Current scope

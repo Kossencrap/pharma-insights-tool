@@ -1,0 +1,8 @@
+{
+  "clinical trial": 1.4,
+  "randomized controlled trial": 1.6,
+  "observational study": 1.2,
+  "review": 0.9,
+  "case report": 0.7,
+  "other": 1.0
+}

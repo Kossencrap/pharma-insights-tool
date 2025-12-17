@@ -11,6 +11,14 @@ from .mention_extractor import (
     co_mentions_from_sentence,
     load_product_config,
 )
+from .weights import (
+    DocumentWeight,
+    compute_document_weight,
+    compute_recency_weight,
+    extract_publication_types,
+    load_study_type_weights,
+    map_study_type,
+)
 
 
 def sentence_counts_by_section(document: Document) -> Dict[str, int]:
@@ -35,5 +43,11 @@ __all__ = [
     "flattened_sentences",
     "load_product_config",
     "mean_sentence_length",
+    "DocumentWeight",
+    "compute_document_weight",
+    "compute_recency_weight",
+    "extract_publication_types",
+    "load_study_type_weights",
+    "map_study_type",
     "sentence_counts_by_section",
 ]

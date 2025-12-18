@@ -119,8 +119,14 @@ def fetch_sentence_evidence(
     rows: List[SentenceEvidence] = []
     for row in cur.fetchall():
         labels: list[str] = []
+        seen: set[str] = set()
         for idx in range(14, 18):
-            labels.extend(_split_labels(row[idx]))
+            for label in _split_labels(row[idx]):
+                key = label.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                labels.append(label)
 
         rows.append(
             SentenceEvidence(

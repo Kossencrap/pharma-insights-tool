@@ -28,6 +28,23 @@ def test_search_page_includes_result_type(monkeypatch):
     assert captured["params"]["resultType"] == "core"
 
 
+def test_base_url_normalization_preserves_path():
+    client = EuropePMCClient(base_url="https://example.com/europepmc/webservices/rest")
+
+    assert (
+        client.search_url
+        == "https://example.com/europepmc/webservices/rest/search"
+    )
+    assert (
+        client.fulltext_url_template.format(id="PMC123")
+        == "https://example.com/europepmc/webservices/rest/PMC123/fullTextXML"
+    )
+    assert (
+        client.metadata_url_template.format(id="PMC123")
+        == "https://example.com/europepmc/webservices/rest/PMC123"
+    )
+
+
 def test_search_page_legacy_includes_result_type(monkeypatch):
     client = EuropePMCClient()
     captured = {}

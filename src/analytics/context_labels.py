@@ -82,6 +82,41 @@ STUDY_CONTEXT_TERMS: Tuple[str, ...] = (
     "in vitro",
     "phase",
     "cohort",
+    "enrollment",
+    "recruitment",
+)
+
+TRIAL_PHASE_PATTERNS: Tuple[str, ...] = (
+    r"phase\s*[1-4](?:/[1-4])?[ab]?",
+    r"phase\s*i{1,3}v?[ab]?",
+    r"phase-?[1-4][ab]?",
+)
+
+ENDPOINT_TERMS: Tuple[str, ...] = (
+    "primary endpoint",
+    "secondary endpoint",
+    "overall survival",
+    "progression-free survival",
+    "pfs",
+    "os",
+    "response rate",
+    "objective response",
+    "hba1c",
+    "a1c",
+    "body weight",
+    "weight loss",
+    "blood pressure",
+)
+
+ADVERSE_EVENT_TERMS: Tuple[str, ...] = (
+    "adverse event",
+    "adverse events",
+    "serious adverse event",
+    "serious adverse events",
+    "grade 3",
+    "grade 4",
+    "ae",
+    "aes",
 )
 
 
@@ -113,6 +148,8 @@ class SentenceContextLabels:
     relationship_types: Set[str] = field(default_factory=set)
     risk_terms: Set[str] = field(default_factory=set)
     study_context: Set[str] = field(default_factory=set)
+    trial_phase_terms: Set[str] = field(default_factory=set)
+    endpoint_terms: Set[str] = field(default_factory=set)
     matched_terms: Dict[str, List[str]] = field(default_factory=dict)
 
 
@@ -123,8 +160,17 @@ def classify_sentence_context(text: str) -> SentenceContextLabels:
     relationship_types, relationship_matches = _match_labeled_terms(
         lower_text, RELATIONSHIP_PATTERNS
     )
-    risk_terms = _match_terms(lower_text, RISK_TERMS)
+    risk_terms = _match_terms(lower_text, RISK_TERMS + ADVERSE_EVENT_TERMS)
     study_context = _match_terms(lower_text, STUDY_CONTEXT_TERMS)
+    endpoint_terms = _match_terms(lower_text, ENDPOINT_TERMS)
+
+    trial_phase_terms: Set[str] = set()
+    for pattern in TRIAL_PHASE_PATTERNS:
+        compiled = re.compile(pattern, flags=re.IGNORECASE)
+        for match in compiled.finditer(lower_text):
+            trial_phase_terms.add(match.group(0))
+    if trial_phase_terms:
+        study_context |= trial_phase_terms
 
     matched_terms: Dict[str, List[str]] = {}
     if comparative_terms:
@@ -134,12 +180,18 @@ def classify_sentence_context(text: str) -> SentenceContextLabels:
         matched_terms["risk_terms"] = sorted(risk_terms)
     if study_context:
         matched_terms["study_context"] = sorted(study_context)
+    if endpoint_terms:
+        matched_terms["endpoint_terms"] = sorted(endpoint_terms)
+    if trial_phase_terms:
+        matched_terms["trial_phase_terms"] = sorted(trial_phase_terms)
 
     return SentenceContextLabels(
         comparative_terms=comparative_terms,
         relationship_types=relationship_types,
         risk_terms=risk_terms,
         study_context=study_context,
+        trial_phase_terms=trial_phase_terms,
+        endpoint_terms=endpoint_terms,
         matched_terms=matched_terms,
     )
 

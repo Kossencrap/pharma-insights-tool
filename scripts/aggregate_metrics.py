@@ -96,6 +96,30 @@ def _aggregate_co_mentions(con: sqlite3.Connection, freq: str) -> List[dict]:
     return add_change_metrics(agg, group_columns=["product_a", "product_b"])
 
 
+def _aggregate_weighted_co_mentions(con: sqlite3.Connection, freq: str) -> List[dict]:
+    rows = _load_rows(
+        con,
+        """
+        SELECT d.publication_date, cm.product_a, cm.product_b, cm.weighted_count
+        FROM co_mentions_weighted cm
+        JOIN documents d ON cm.doc_id = d.doc_id
+        WHERE d.publication_date IS NOT NULL
+        """,
+    )
+
+    config = TimeSeriesConfig(
+        timestamp_column="publication_date",
+        freq=freq,
+        group_columns=["product_a", "product_b"],
+        value_column="weighted_count",
+        sum_value=True,
+    )
+    agg = bucket_counts(config, rows)
+    return add_change_metrics(
+        agg, group_columns=["product_a", "product_b"], value_column="count"
+    )
+
+
 def _write_rows(outdir: Path, name: str, frames: Dict[str, List[dict]]) -> None:
     """Write aggregated rows to disk.
 
@@ -133,15 +157,18 @@ def main() -> None:
     documents: Dict[str, List[dict]] = {}
     mentions: Dict[str, List[dict]] = {}
     co_mentions: Dict[str, List[dict]] = {}
+    weighted_co_mentions: Dict[str, List[dict]] = {}
 
     for freq in args.freq:
         documents[freq] = _aggregate_documents(con, freq)
         mentions[freq] = _aggregate_mentions(con, freq)
         co_mentions[freq] = _aggregate_co_mentions(con, freq)
+        weighted_co_mentions[freq] = _aggregate_weighted_co_mentions(con, freq)
 
     _write_rows(args.outdir, "documents", documents)
     _write_rows(args.outdir, "mentions", mentions)
     _write_rows(args.outdir, "co_mentions", co_mentions)
+    _write_rows(args.outdir, "co_mentions_weighted", weighted_co_mentions)
 
 
 if __name__ == "__main__":

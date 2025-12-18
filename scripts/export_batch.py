@@ -28,11 +28,13 @@ except ImportError:  # pragma: no cover - handled in code paths
     pd = None  # type: ignore
 
 from scripts import aggregate_metrics as aggregator
+from src.analytics import fetch_sentence_evidence, serialize_sentence_evidence
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
 DEFAULT_EXPORT_ROOT = Path("data/exports")
 DEFAULT_RAW_RETENTION_DAYS = 30
 DEFAULT_INGEST_RETENTION_DAYS = 14
+DEFAULT_EVIDENCE_LIMIT = 500
 
 RAW_TABLES = [
     "documents",
@@ -72,6 +74,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=DEFAULT_INGEST_RETENTION_DAYS,
         help="Retention window for data/raw ingestion artifacts",
+    )
+    parser.add_argument(
+        "--evidence-limit",
+        type=int,
+        default=DEFAULT_EVIDENCE_LIMIT,
+        help="Maximum number of sentence-level evidence rows to export (default: 500)",
     )
     return parser.parse_args()
 
@@ -125,11 +133,15 @@ def _aggregate_frames(con: sqlite3.Connection, freqs: Sequence[str]) -> Dict[str
         "documents": {},
         "mentions": {},
         "co_mentions": {},
+        "co_mentions_weighted": {},
     }
     for freq in freqs:
         aggregates["documents"][freq] = aggregator._aggregate_documents(con, freq)
         aggregates["mentions"][freq] = aggregator._aggregate_mentions(con, freq)
         aggregates["co_mentions"][freq] = aggregator._aggregate_co_mentions(con, freq)
+        aggregates["co_mentions_weighted"][freq] = aggregator._aggregate_weighted_co_mentions(
+            con, freq
+        )
     return aggregates
 
 
@@ -152,6 +164,24 @@ def _export_aggregates(
             }
             print(f"Aggregated {dataset} ({freq}) -> {csv_path} ({len(rows)} rows)")
     return summary
+
+
+def _export_evidence(
+    con: sqlite3.Connection, outdir: Path, *, run_slug: str, limit: int
+) -> dict:
+    outdir.mkdir(parents=True, exist_ok=True)
+    evidence_rows = fetch_sentence_evidence(con, limit=limit)
+    serialized = serialize_sentence_evidence(evidence_rows)
+
+    base_name = f"sentence_evidence_{run_slug}"
+    csv_path = outdir / f"{base_name}.csv"
+    parquet_path = outdir / f"{base_name}.parquet"
+
+    _write_csv(serialized, csv_path)
+    _write_parquet(serialized, parquet_path)
+
+    print(f"Exported {len(serialized)} evidence rows -> {csv_path}")
+    return {"csv": str(csv_path), "parquet": str(parquet_path), "rows": len(serialized)}
 
 
 def _table_count(con: sqlite3.Connection, table: str, where: str | None = None) -> int:
@@ -228,6 +258,7 @@ def run_export(
     ingest_retention_days: int = DEFAULT_INGEST_RETENTION_DAYS,
     raw_ingest_dir: Path = Path("data/raw"),
     now: datetime | None = None,
+    evidence_limit: int = DEFAULT_EVIDENCE_LIMIT,
 ) -> dict:
     run_ts = now or datetime.now(timezone.utc)
     run_slug = run_ts.strftime("run_%Y%m%d")
@@ -237,6 +268,7 @@ def run_export(
 
     run_dir = export_root / "runs" / run_slug
     aggregates_dir = export_root / "aggregates" / run_slug
+    evidence_dir = run_dir / "evidence"
     raw_export_dir = run_dir / "raw"
 
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -247,6 +279,9 @@ def run_export(
 
     aggregates = _aggregate_frames(con, freqs)
     aggregate_exports = _export_aggregates(aggregates, aggregates_dir, run_slug)
+    evidence_exports = _export_evidence(
+        con, evidence_dir, run_slug=run_slug, limit=evidence_limit
+    )
 
     raw_exports: Dict[str, dict] = {}
     for table in RAW_TABLES:
@@ -261,6 +296,7 @@ def run_export(
         "db_path": str(db_path),
         "export_root": str(export_root),
         "aggregate_exports": aggregate_exports,
+        "evidence_export": evidence_exports,
         "raw_exports": raw_exports,
         "consistency": consistency,
     }
@@ -284,6 +320,7 @@ def main() -> None:
         freqs=args.freq,
         raw_retention_days=args.raw_retention_days,
         ingest_retention_days=args.ingest_retention_days,
+        evidence_limit=args.evidence_limit,
     )
 
 

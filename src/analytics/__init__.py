@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Dict, List
 
 from src.structuring.models import Document, Sentence
+from .evidence import (
+    SentenceEvidence,
+    fetch_sentence_evidence,
+    serialize_sentence_evidence,
+)
 from .mention_extractor import (
     MentionExtractor,
     ProductMention,
@@ -44,6 +49,7 @@ __all__ = [
     "flattened_sentences",
     "load_product_config",
     "mean_sentence_length",
+    "SentenceEvidence",
     "DocumentWeight",
     "compute_document_weight",
     "compute_recency_weight",
@@ -51,6 +57,8 @@ __all__ = [
     "load_study_type_weights",
     "map_study_type",
     "sentence_counts_by_section",
+    "fetch_sentence_evidence",
+    "serialize_sentence_evidence",
     "TimeSeriesConfig",
     "add_change_metrics",
     "bucket_counts",

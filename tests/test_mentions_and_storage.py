@@ -21,7 +21,7 @@ from src.structuring.models import Document, Sentence, Section
 from src.utils.identifiers import build_sentence_id
 
 
-def test_mention_extraction_and_co_mentions():
+def test_mention_extraction_and_co_mentions(execution_log):
     extractor = MentionExtractor({"dupilumab": ["Dupixent"], "insulin": ["insulin"]})
     text = "Dupixent outperformed insulin in the study."
 
@@ -31,9 +31,13 @@ def test_mention_extraction_and_co_mentions():
 
     pairs = co_mentions_from_sentence(mentions)
     assert pairs == [("dupilumab", "insulin", 1)]
+    execution_log.record(
+        "Co-mentions",
+        "Dupixent + insulin detected together with count=1",
+    )
 
 
-def test_mention_extractor_handles_plural_and_case():
+def test_mention_extractor_handles_plural_and_case(execution_log):
     extractor = MentionExtractor({"insulin": ["insulin"], "semaglutide": ["Ozempic"]})
     text = "Insulins like insulin glargine and OZEMPICS were compared."
 
@@ -41,6 +45,10 @@ def test_mention_extractor_handles_plural_and_case():
     aliases = {m.alias_matched.lower() for m in mentions}
     assert "insulins" in aliases
     assert "ozempics" in aliases
+    execution_log.record(
+        "Mention normalization",
+        "Captured plural/case variants for insulin and Ozempic",
+    )
 
 
 def test_sqlite_store_persists_documents_sentences_and_mentions(tmp_path):

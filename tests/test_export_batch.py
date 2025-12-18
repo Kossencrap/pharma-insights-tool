@@ -106,11 +106,13 @@ def test_export_creates_outputs_and_prunes_old_runs(tmp_path: Path) -> None:
     mentions_csv = raw_dir / "product_mentions.csv"
     weighted_comentions_csv = aggregates_dir / f"co_mentions_weighted_w_{run_slug}.csv"
     evidence_csv = evidence_dir / f"sentence_evidence_{run_slug}.csv"
+    evidence_jsonl = evidence_dir / f"sentence_evidence_{run_slug}.jsonl"
 
     assert documents_csv.exists()
     assert mentions_csv.exists()
     assert weighted_comentions_csv.exists()
     assert evidence_csv.exists()
+    assert evidence_jsonl.exists()
 
     with documents_csv.open("r", encoding="utf-8") as f:
         header = f.readline().strip()
@@ -126,10 +128,15 @@ def test_export_creates_outputs_and_prunes_old_runs(tmp_path: Path) -> None:
     assert len(evidence_lines) >= 2
     assert "evidence_weight" in evidence_lines[0]
 
+    evidence_records = [json.loads(line) for line in evidence_jsonl.read_text(encoding="utf-8").splitlines()]
+    assert any(record.get("study_type") for record in evidence_records)
+    assert all("matched_terms" in record for record in evidence_records)
+
     manifest_path = export_root / "runs" / run_slug / "manifest.json"
     saved_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert any(check["consistent"] for check in saved_manifest["consistency"])
     assert saved_manifest.get("evidence_export", {}).get("rows") >= 1
+    assert "jsonl" in saved_manifest.get("evidence_export", {})
 
     assert not old_run.exists()
     assert not old_file.exists()

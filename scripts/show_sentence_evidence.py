@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 from pathlib import Path
 
 from src.analytics import fetch_sentence_evidence
+from src.analytics.weights import STUDY_TYPE_ALIASES, load_study_type_weights
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
 
@@ -30,6 +32,12 @@ def parse_args() -> argparse.Namespace:
         default=50,
         help="Maximum number of evidence sentences to display (default: 50).",
     )
+    parser.add_argument(
+        "--study-weight-config",
+        type=Path,
+        default=Path("config/study_type_weights.json"),
+        help="Path to study-type weight configuration (default: config/study_type_weights.json)",
+    )
     return parser.parse_args()
 
 
@@ -42,6 +50,8 @@ def main() -> None:
         )
 
     conn = sqlite3.connect(args.db)
+    study_weight_lookup = load_study_type_weights(args.study_weight_config)
+
     evidence_rows = fetch_sentence_evidence(
         conn,
         product_a=args.product_a,
@@ -54,6 +64,13 @@ def main() -> None:
         print("No evidence sentences found for the given filters.")
         return
 
+    def _resolve_weight(study_type: str | None) -> float | None:
+        if not study_type:
+            return study_weight_lookup.get("other")
+        normalized = study_type.strip().lower()
+        canonical = STUDY_TYPE_ALIASES.get(normalized, normalized)
+        return study_weight_lookup.get(canonical, study_weight_lookup.get("other"))
+
     for evidence in evidence_rows:
         header = f"{evidence.doc_id} | {evidence.product_a} vs {evidence.product_b}"
         if evidence.publication_date:
@@ -65,8 +82,21 @@ def main() -> None:
         print(evidence.sentence_text.strip())
         if evidence.labels:
             print(f"Labels: {', '.join(evidence.labels)}")
-        if evidence.evidence_weight:
-            print(f"Weight: {evidence.evidence_weight:.3f}")
+        study_weight = evidence.study_type_weight or _resolve_weight(evidence.study_type)
+        base_weight = evidence.recency_weight or 1.0
+        combined_weight = evidence.combined_weight or (
+            base_weight * (study_weight or 1.0)
+        )
+        confidence = combined_weight * max(evidence.count, 1)
+        weight_msg = {
+            "recency_weight": evidence.recency_weight,
+            "study_type": evidence.study_type,
+            "study_type_weight": study_weight,
+            "combined_weight": combined_weight,
+            "count": evidence.count,
+            "confidence": confidence,
+        }
+        print(f"Weights: {json.dumps(weight_msg, default=float)}")
         print()
 
 

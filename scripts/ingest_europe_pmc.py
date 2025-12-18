@@ -414,8 +414,9 @@ def run_ingestion(
 
     print(
         "Ingested "
-        f"{dedup_stats['output_count']} normalized documents "
-        f"from {dedup_stats['input_count']} raw records for query: {query.query}"
+        f"{dedup_stats['output_count']} documents "
+        f"(normalized from {dedup_stats['input_count']} raw records) "
+        f"for query: {query.query}"
     )
     if documents:
         section_counts = sentence_counts_by_section(documents[0])

@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path:
 from src.ingestion.europe_pmc_client import EuropePMCClient
 
 
-def test_build_drug_query_includes_names_and_date_range():
+def test_build_drug_query_includes_names_and_date_range(execution_log):
     query = EuropePMCClient.build_drug_query(
         product_names=["Dupixent", "dupilumab"],
         from_date=date(2024, 1, 1),
@@ -21,9 +21,13 @@ def test_build_drug_query_includes_names_and_date_range():
     assert "ABSTRACT:\"dupilumab\"" in query
     assert "HAS_ABSTRACT:Y" in query
     assert "FIRST_PDATE:[2024-01-01 TO 2024-12-31]" in query
+    execution_log.record(
+        "Europe PMC query",
+        "Dupixent/dupilumab query includes abstract requirement and 2024 date window",
+    )
 
 
-def test_parse_publication_date_variants():
+def test_parse_publication_date_variants(execution_log):
     client = EuropePMCClient()
 
     pub_date, pub_year = client._parse_publication_date(  # pylint: disable=protected-access
@@ -42,3 +46,7 @@ def test_parse_publication_date_variants():
     )
     assert pub_date is None
     assert pub_year == 2020
+    execution_log.record(
+        "Publication dates",
+        "Parsed explicit 2024-02-15 and fallback pubYear=2020 variants",
+    )

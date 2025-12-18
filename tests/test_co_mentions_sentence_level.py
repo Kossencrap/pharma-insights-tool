@@ -53,7 +53,7 @@ def _bootstrap_document(tmp_path: pathlib.Path) -> tuple[sqlite3.Connection, Doc
     return conn, document, sentence_id, section.sentences[0].text
 
 
-def test_sentence_level_co_mentions_are_persisted(tmp_path):
+def test_sentence_level_co_mentions_are_persisted(tmp_path, execution_log):
     conn, document, sentence_id, abstract_text = _bootstrap_document(tmp_path)
 
     extractor = MentionExtractor({"insulin": ["insulin"], "metformin": ["metformin"]})
@@ -104,6 +104,11 @@ def test_sentence_level_co_mentions_are_persisted(tmp_path):
 
     cur.execute("SELECT doc_id, product_a, product_b, count FROM co_mentions")
     assert cur.fetchone() == (document.doc_id, "insulin", "metformin", 1)
+
+    execution_log.record(
+        "Sentence co-mentions",
+        f"{document.doc_id} -> insulin + metformin stored with count=1",
+    )
 
     conn.close()
 

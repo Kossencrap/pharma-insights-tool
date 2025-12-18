@@ -12,7 +12,9 @@ from scripts import ingest_europe_pmc as runner
 from src.ingestion.models import EuropePMCSearchResult
 
 
-def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatch, capsys):
+def test_run_ingestion_writes_outputs_and_uses_query_params(
+    tmp_path, monkeypatch, capsys, execution_log
+):
     raw_dir = tmp_path / "raw"
     processed_dir = tmp_path / "processed"
 
@@ -97,9 +99,13 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(tmp_path, monkeypatc
     output = capsys.readouterr().out
     assert "Ingested 2 documents" in output
     assert "mockproduct_raw.json" in output
+    execution_log.record(
+        "Ingestion run",
+        "MockProduct -> 2 structured docs, raw/processed files written, persisted to SQLite",
+    )
 
 
-def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys):
+def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys, execution_log):
     raw_dir = tmp_path / "raw"
     processed_dir = tmp_path / "processed"
 
@@ -152,3 +158,7 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys):
 
     output = capsys.readouterr().out
     assert "hitCount=0" in output
+    execution_log.record(
+        "Ingestion run",
+        "NoResults -> handled hitCount=0 with empty raw/structured outputs",
+    )

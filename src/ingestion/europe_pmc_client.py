@@ -15,9 +15,7 @@ from urllib3.util.retry import Retry
 from .models import EuropePMCSearchResult
 
 
-EUROPE_PMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
-EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{id}/fullTextXML"
-EUROPE_PMC_METADATA_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{id}"  # returns XML/JSON depending
+EUROPE_PMC_API_BASE_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/"
 
 
 @dataclass(frozen=True)
@@ -54,11 +52,19 @@ class EuropePMCClient:
         trust_env: bool = True,
         proxies: Optional[Dict[str, str]] = None,
         session: Optional[Session] = None,
+        base_url: str = EUROPE_PMC_API_BASE_URL,
     ) -> None:
         self.timeout_s = timeout_s
         self.polite_delay_s = polite_delay_s
         self._max_retries = max_retries
         self._backoff_factor = backoff_factor
+
+        # Ensure we never drop the /europepmc/webservices/rest/ path when callers provide a base
+        # URL with or without trailing slashes.
+        normalized_base = base_url.rstrip("/") + "/"
+        self.search_url = normalized_base + "search"
+        self.fulltext_url_template = normalized_base + "{id}/fullTextXML"
+        self.metadata_url_template = normalized_base + "{id}"
 
         self.session = session or requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
@@ -265,9 +271,11 @@ class EuropePMCClient:
             "sort": self._validate_sort(q.sort),
             "resultType": q.result_type,
         }
-        r = self._get_with_retry(EUROPE_PMC_SEARCH_URL, params)
+        r = self._get_with_retry(self.search_url, params)
         if r.status_code != 200:
-            raise RuntimeError(f"Europe PMC search failed: HTTP {r.status_code} - {r.text[:300]}")
+            raise RuntimeError(
+                f"Europe PMC search failed: HTTP {r.status_code} at {r.url} - {r.text[:300]}"
+            )
         try:
             return r.json()
         except json.JSONDecodeError as e:
@@ -282,9 +290,11 @@ class EuropePMCClient:
             "sort": self._validate_sort(q.sort),
             "resultType": q.result_type,
         }
-        r = self._get_with_retry(EUROPE_PMC_SEARCH_URL, params)
+        r = self._get_with_retry(self.search_url, params)
         if r.status_code != 200:
-            raise RuntimeError(f"Europe PMC search failed: HTTP {r.status_code} - {r.text[:300]}")
+            raise RuntimeError(
+                f"Europe PMC search failed: HTTP {r.status_code} at {r.url} - {r.text[:300]}"
+            )
         try:
             return r.json()
         except json.JSONDecodeError as e:
@@ -360,7 +370,7 @@ class EuropePMCClient:
         Fetch full text XML for an OA PMC record.
         Input should look like 'PMC1234567' (Europe PMC accepts various IDs).
         """
-        url = EUROPE_PMC_FULLTEXT_URL.format(id=pmcid)
+        url = self.fulltext_url_template.format(id=pmcid)
         r = self.session.get(url, timeout=self.timeout_s)
         if r.status_code != 200:
             raise RuntimeError(f"Full text fetch failed for {pmcid}: HTTP {r.status_code} - {r.text[:300]}")

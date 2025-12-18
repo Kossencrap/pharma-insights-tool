@@ -7,7 +7,9 @@ from datetime import date, datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
+from requests import Session
 from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
 from .models import EuropePMCSearchResult
@@ -51,11 +53,14 @@ class EuropePMCClient:
         *,
         trust_env: bool = True,
         proxies: Optional[Dict[str, str]] = None,
+        session: Optional[Session] = None,
     ) -> None:
         self.timeout_s = timeout_s
         self.polite_delay_s = polite_delay_s
+        self._max_retries = max_retries
+        self._backoff_factor = backoff_factor
 
-        self.session = requests.Session()
+        self.session = session or requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
         # Allow callers to bypass environment proxy variables when local proxies block access.
         self.session.trust_env = trust_env
@@ -260,7 +265,7 @@ class EuropePMCClient:
             "sort": self._validate_sort(q.sort),
             "resultType": q.result_type,
         }
-        r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
+        r = self._get_with_retry(EUROPE_PMC_SEARCH_URL, params)
         if r.status_code != 200:
             raise RuntimeError(f"Europe PMC search failed: HTTP {r.status_code} - {r.text[:300]}")
         try:
@@ -277,7 +282,7 @@ class EuropePMCClient:
             "sort": self._validate_sort(q.sort),
             "resultType": q.result_type,
         }
-        r = self.session.get(EUROPE_PMC_SEARCH_URL, params=params, timeout=self.timeout_s)
+        r = self._get_with_retry(EUROPE_PMC_SEARCH_URL, params)
         if r.status_code != 200:
             raise RuntimeError(f"Europe PMC search failed: HTTP {r.status_code} - {r.text[:300]}")
         try:
@@ -302,6 +307,18 @@ class EuropePMCClient:
         else:
             payload = self._search_page_legacy(q, page=page)
         return payload, cursor_mode
+
+    def _get_with_retry(self, url: str, params: Dict[str, Any]) -> requests.Response:
+        attempts = 0
+        while True:
+            try:
+                return self.session.get(url, params=params, timeout=self.timeout_s)
+            except RequestException as exc:  # pragma: no cover - exercised via tests
+                attempts += 1
+                if attempts > self._max_retries:
+                    raise
+                sleep_for = self._backoff_factor * attempts
+                time.sleep(sleep_for)
 
     @staticmethod
     def _is_version_stub(payload: Dict[str, Any]) -> bool:
@@ -395,6 +412,12 @@ class EuropePMCClient:
         if isinstance(is_oa, str):
             is_oa = is_oa.upper() == "Y"
 
+        sample_size = rec.get("sampleSize") or rec.get("participants")
+        try:
+            sample_size_val = int(sample_size) if sample_size not in (None, "") else None
+        except (TypeError, ValueError):
+            sample_size_val = None
+
         return EuropePMCSearchResult(
             pmid=rec.get("pmid"),
             pmcid=rec.get("pmcid"),
@@ -409,5 +432,8 @@ class EuropePMCClient:
             is_open_access=is_oa if isinstance(is_oa, bool) else None,
             cited_by_count=int(rec["citedByCount"]) if rec.get("citedByCount") not in (None, "") else None,
             source=rec.get("source"),
+            study_design=rec.get("studyDesign") or rec.get("studyType"),
+            study_phase=rec.get("phase") or rec.get("studyPhase"),
+            sample_size=sample_size_val,
             raw=rec,
         )

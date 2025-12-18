@@ -96,6 +96,33 @@ def _aggregate_co_mentions(con: sqlite3.Connection, freq: str) -> List[dict]:
     return add_change_metrics(agg, group_columns=["product_a", "product_b"])
 
 
+def _validation_metrics(con: sqlite3.Connection) -> dict:
+    con.row_factory = sqlite3.Row
+    row = con.execute(
+        """
+        SELECT
+            COUNT(*) AS total_documents,
+            COUNT(DISTINCT pmid) AS distinct_pmid,
+            COUNT(DISTINCT pmcid) AS distinct_pmcid,
+            COUNT(DISTINCT doi) AS distinct_doi,
+            COUNT(DISTINCT COALESCE(NULLIF(pmid, ''), NULLIF(doi, ''), NULLIF(pmcid, ''), doc_id)) AS canonical_ids
+        FROM documents
+        """
+    ).fetchone()
+
+    total = row["total_documents"] or 0
+    canonical_ids = row["canonical_ids"] or 0
+    dedup_ratio = canonical_ids / total if total else 1.0
+
+    return {
+        "total_documents": total,
+        "distinct_pmid": row["distinct_pmid"] or 0,
+        "distinct_pmcid": row["distinct_pmcid"] or 0,
+        "distinct_doi": row["distinct_doi"] or 0,
+        "dedup_ratio": dedup_ratio,
+    }
+
+
 def _aggregate_weighted_co_mentions(con: sqlite3.Connection, freq: str) -> List[dict]:
     rows = _load_rows(
         con,
@@ -158,17 +185,22 @@ def main() -> None:
     mentions: Dict[str, List[dict]] = {}
     co_mentions: Dict[str, List[dict]] = {}
     weighted_co_mentions: Dict[str, List[dict]] = {}
+    validation: dict = {}
 
     for freq in args.freq:
         documents[freq] = _aggregate_documents(con, freq)
         mentions[freq] = _aggregate_mentions(con, freq)
         co_mentions[freq] = _aggregate_co_mentions(con, freq)
         weighted_co_mentions[freq] = _aggregate_weighted_co_mentions(con, freq)
+    validation = _validation_metrics(con)
 
     _write_rows(args.outdir, "documents", documents)
     _write_rows(args.outdir, "mentions", mentions)
     _write_rows(args.outdir, "co_mentions", co_mentions)
     _write_rows(args.outdir, "co_mentions_weighted", weighted_co_mentions)
+    with (args.outdir / "validation_metrics.json").open("w", encoding="utf-8") as f:
+        json.dump(validation, f, indent=2)
+    print(f"Wrote validation metrics to {args.outdir / 'validation_metrics.json'}")
 
 
 if __name__ == "__main__":

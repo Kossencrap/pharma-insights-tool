@@ -23,6 +23,9 @@ CREATE_TABLES_SQL = [
         journal TEXT,
         publication_date TEXT,
         pub_year INTEGER,
+        study_design TEXT,
+        study_phase TEXT,
+        sample_size INTEGER,
         raw_json TEXT
     )
     """,
@@ -198,6 +201,7 @@ def init_db(path: Path | str) -> sqlite3.Connection:
 
     for stmt in CREATE_TABLES_SQL:
         conn.execute(stmt)
+    _ensure_documents_schema(conn)
     for stmt in CREATE_VIEWS_SQL:
         conn.execute(stmt)
     conn.commit()
@@ -242,6 +246,25 @@ def _ensure_co_mentions_sentences_schema(conn: sqlite3.Connection) -> None:
 
     if columns != expected_columns or not pk_matches:
         conn.execute("DROP TABLE co_mentions_sentences")
+
+
+def _ensure_documents_schema(conn: sqlite3.Connection) -> None:
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
+    )
+    if not cur.fetchone():
+        return
+
+    rows = conn.execute("PRAGMA table_info(documents)").fetchall()
+    existing = {r[1] for r in rows}
+    expected = {
+        "study_design": "TEXT",
+        "study_phase": "TEXT",
+        "sample_size": "INTEGER",
+    }
+    for column, ddl in expected.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE documents ADD COLUMN {column} {ddl}")
 
 
 def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
@@ -301,8 +324,8 @@ def upsert_document(conn: sqlite3.Connection, document: Document, raw_json: Opti
     conn.execute(
         """
         INSERT OR REPLACE INTO documents (
-            doc_id, source, pmid, pmcid, doi, title, abstract, journal, publication_date, pub_year, raw_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            doc_id, source, pmid, pmcid, doi, title, abstract, journal, publication_date, pub_year, study_design, study_phase, sample_size, raw_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             document.doc_id,
@@ -315,6 +338,9 @@ def upsert_document(conn: sqlite3.Connection, document: Document, raw_json: Opti
             document.journal,
             document.publication_date.isoformat() if document.publication_date else None,
             document.pub_year,
+            document.study_design,
+            document.study_phase,
+            document.sample_size,
             json.dumps(raw_json) if raw_json is not None else None,
         ),
     )

@@ -27,5 +27,9 @@ class EuropePMCSearchResult(BaseModel):
     is_open_access: Optional[bool] = None
     cited_by_count: Optional[int] = None
 
+    study_design: Optional[str] = None
+    study_phase: Optional[str] = None
+    sample_size: Optional[int] = None
+
     source: Optional[str] = Field(default=None, description="Europe PMC source field, e.g. 'MED' or 'PMC'")
     raw: dict = Field(default_factory=dict, description="Raw Europe PMC record for audit/debug.")

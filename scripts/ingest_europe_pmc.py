@@ -36,6 +36,7 @@ from src.storage import (
     upsert_document,
     upsert_document_weight,
 )
+from src.structuring.models import normalize_and_deduplicate
 from src.structuring.sentence_splitter import SentenceSplitter
 from src.utils.identifiers import build_sentence_id
 
@@ -340,7 +341,7 @@ def run_ingestion(
         print(f"Structured documents written to: {structured_path}")
         return
 
-    results = list(
+    raw_results = list(
         client.search(
             query,
             max_records=args.max_records,
@@ -349,12 +350,14 @@ def run_ingestion(
         )
     )
 
+    normalized_results, dedup_stats = normalize_and_deduplicate(raw_results)
+
     with raw_path.open("w", encoding="utf-8") as f:
-        json.dump([r.raw for r in results], f, indent=2)
+        json.dump([r.raw for r in raw_results], f, indent=2)
 
     documents = []
     with structured_path.open("w", encoding="utf-8") as f:
-        for record in results:
+        for record in normalized_results:
             doc = splitter.split_document(record)
             documents.append(doc)
             f.write(json.dumps(doc.to_dict()) + "\n")
@@ -409,7 +412,11 @@ def run_ingestion(
                     if co_mention_pairs:
                         insert_co_mentions(conn, doc.doc_id, co_mention_pairs)
 
-    print(f"Ingested {len(results)} documents for query: {query.query}")
+    print(
+        "Ingested "
+        f"{dedup_stats['output_count']} normalized documents "
+        f"from {dedup_stats['input_count']} raw records for query: {query.query}"
+    )
     if documents:
         section_counts = sentence_counts_by_section(documents[0])
         mean_len = mean_sentence_length(documents[0])

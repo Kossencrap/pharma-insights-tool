@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from src.ingestion.models import EuropePMCSearchResult
 from src.utils.identifiers import build_document_id
@@ -39,6 +39,9 @@ class Document:
     publication_date: Optional[date] = None
     pub_year: Optional[int] = None
     journal: Optional[str] = None
+    study_design: Optional[str] = None
+    study_phase: Optional[str] = None
+    sample_size: Optional[int] = None
     sections: List[Section] = field(default_factory=list)
 
     @classmethod
@@ -62,6 +65,9 @@ class Document:
             publication_date=record.publication_date,
             pub_year=record.pub_year,
             journal=record.journal,
+            study_design=record.study_design,
+            study_phase=record.study_phase,
+            sample_size=record.sample_size,
         )
 
     def iter_sentences(self) -> Iterable[Sentence]:
@@ -103,5 +109,90 @@ class Document:
             else None,
             "pub_year": self.pub_year,
             "journal": self.journal,
+            "study_design": self.study_design,
+            "study_phase": self.study_phase,
+            "sample_size": self.sample_size,
             "sections": [_section_to_dict(section) for section in self.sections],
         }
+
+
+def _normalize_identifier(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _normalize_pmcid(pmcid: Optional[str]) -> Optional[str]:
+    normalized = _normalize_identifier(pmcid)
+    if not normalized:
+        return None
+    normalized = normalized.upper()
+    if not normalized.startswith("PMC"):
+        normalized = f"PMC{normalized}"
+    return normalized
+
+
+def _normalize_doi(doi: Optional[str]) -> Optional[str]:
+    normalized = _normalize_identifier(doi)
+    return normalized.lower() if normalized else None
+
+
+def normalize_and_deduplicate(
+    records: Iterable[EuropePMCSearchResult],
+) -> Tuple[List[EuropePMCSearchResult], Dict[str, int]]:
+    """Normalize identifiers and collapse duplicate records.
+
+    Returns a tuple of ``(deduplicated_records, stats)`` where stats includes the
+    ``input_count`` and ``duplicates_collapsed`` counts to aid validation/metrics.
+    """
+
+    normalized: List[EuropePMCSearchResult] = []
+    for record in records:
+        normalized.append(
+            record.model_copy(
+                update={
+                    "pmid": _normalize_identifier(record.pmid),
+                    "pmcid": _normalize_pmcid(record.pmcid),
+                    "doi": _normalize_doi(record.doi),
+                }
+            )
+        )
+
+    merged: Dict[str, EuropePMCSearchResult] = {}
+    duplicates = 0
+
+    for record in normalized:
+        canonical_key = (
+            record.pmid
+            or record.doi
+            or record.pmcid
+            or f"title:{(record.title or '').strip().lower()}"
+        )
+
+        if canonical_key in merged:
+            base = merged[canonical_key]
+            merged[canonical_key] = base.model_copy(
+                update={
+                    "pmid": base.pmid or record.pmid,
+                    "pmcid": base.pmcid or record.pmcid,
+                    "doi": base.doi or record.doi,
+                    "publication_date": base.publication_date or record.publication_date,
+                    "pub_year": base.pub_year or record.pub_year,
+                    "study_design": base.study_design or record.study_design,
+                    "study_phase": base.study_phase or record.study_phase,
+                    "sample_size": base.sample_size or record.sample_size,
+                    "raw": base.raw or record.raw,
+                }
+            )
+            duplicates += 1
+        else:
+            merged[canonical_key] = record
+
+    stats = {
+        "input_count": len(normalized),
+        "duplicates_collapsed": duplicates,
+        "output_count": len(merged),
+    }
+
+    return list(merged.values()), stats

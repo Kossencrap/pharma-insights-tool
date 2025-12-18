@@ -117,6 +117,13 @@ def _write_parquet(rows: List[dict], outfile: Path) -> None:
     df.to_parquet(outfile, index=False)
 
 
+def _write_jsonl(rows: List[dict], outfile: Path) -> None:
+    outfile.parent.mkdir(parents=True, exist_ok=True)
+    with outfile.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, default=str) + "\n")
+
+
 def _export_query(con: sqlite3.Connection, query: str, base_name: str, outdir: Path) -> dict:
     cur = con.execute(query)
     rows = _rows_from_cursor(cur)
@@ -176,12 +183,19 @@ def _export_evidence(
     base_name = f"sentence_evidence_{run_slug}"
     csv_path = outdir / f"{base_name}.csv"
     parquet_path = outdir / f"{base_name}.parquet"
+    jsonl_path = outdir / f"{base_name}.jsonl"
 
     _write_csv(serialized, csv_path)
     _write_parquet(serialized, parquet_path)
+    _write_jsonl(serialized, jsonl_path)
 
     print(f"Exported {len(serialized)} evidence rows -> {csv_path}")
-    return {"csv": str(csv_path), "parquet": str(parquet_path), "rows": len(serialized)}
+    return {
+        "csv": str(csv_path),
+        "parquet": str(parquet_path),
+        "jsonl": str(jsonl_path),
+        "rows": len(serialized),
+    }
 
 
 def _table_count(con: sqlite3.Connection, table: str, where: str | None = None) -> int:

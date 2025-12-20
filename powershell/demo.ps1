@@ -5,7 +5,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-# Force UTF-8 for this PowerShell session (prevents UnicodeEncodeError)
+# Force UTF-8 for this PowerShell session (prevents Unicode issues)
 chcp 65001 | Out-Null
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $env:PYTHONUTF8 = "1"
@@ -15,15 +15,16 @@ $env:PYTHONIOENCODING = "utf-8"
 # 0) Demo configuration
 # -----------------------------
 $RepoRoot   = Join-Path $HOME 'Documents\pharma-insights-tool'
-$DbPath     = Join-Path $RepoRoot 'data\europepmc.sqlite'
+$RunDir     = Join-Path $RepoRoot 'data\demo_runs'
+$RunStamp   = Get-Date -Format 'yyyyMMdd_HHmmss'
+$DbPath     = Join-Path $RunDir ("europepmc_demo_{0}.sqlite" -f $RunStamp)
 $ExportRoot = Join-Path $RepoRoot 'data\exports'
 $MetricsDir = Join-Path $RepoRoot 'data\processed\metrics'
 
 $FromDate   = '2022-01-01'
-$MaxRecords = 500
+$MaxRecords = 5000
 
-# Default pair to drill down on if no co-mentions are found
-# Pair to drill down on (known to work in your dataset)
+# Pair to ingest and drill down on (drill stays fixed; no fallback)
 $ProductA   = 'aspirin'
 $ProductB   = 'ibuprofen'
 
@@ -36,9 +37,8 @@ Write-Host ' Pharma Insights Tool — End-to-End Demo'
 Write-Host '============================================================'
 Write-Host ("Repo   : {0}" -f $RepoRoot)
 Write-Host ("DB     : {0}" -f $DbPath)
-Write-Host ("Ingest : aspirin + ibuprofen since {0} (max {1})" -f $FromDate, $MaxRecords)
-Write-Host ("Drill  : {0} + {1} (auto-selected from top co-mention when available)" -f $ProductA, $ProductB)
-Write-Host ("Drill  : {0} + {1}" -f $ProductA, $ProductB)
+Write-Host ("Ingest : {0} + {1} since {2} (max {3})" -f $ProductA, $ProductB, $FromDate, $MaxRecords)
+Write-Host ("Drill  : {0} + {1} (fixed; no fallback)" -f $ProductA, $ProductB)
 Write-Host '============================================================'
 Write-Host ''
 
@@ -65,6 +65,9 @@ Write-Host 'Activating venv...'
 Write-Host 'Python interpreter:'
 python -c "import sys; print(sys.executable)" | Out-Host
 
+# Make sure pip tooling is sane inside the venv
+python -m pip install -U pip setuptools wheel | Out-Host
+
 Write-Host 'Ensuring project is installed in editable mode (so src imports work)...'
 python -m pip install -e . | Out-Host
 
@@ -74,19 +77,21 @@ python -c "import src; print('import src OK')" | Out-Host
 Write-Host ''
 
 # -----------------------------
-# 2) Ingest Europe PMC -> SQLite
+# 2) Ingest Europe PMC -> per-run SQLite
 # -----------------------------
 Write-Host '== 2. Ingest Europe PMC into SQLite =='
-Write-Host 'Goal: fetch records, extract mentions, persist documents + mentions to SQLite.'
+Write-Host 'Goal: fetch records mentioning ProductA OR ProductB (current ingest supports OR); drill stays fixed.'
 Write-Host ''
 
-if (!(Test-Path '.\data')) {
-  New-Item -ItemType Directory -Path '.\data' | Out-Null
+if (!(Test-Path $RunDir)) {
+  New-Item -ItemType Directory -Path $RunDir | Out-Null
 }
 
+# NOTE: --require-all-products is NOT supported by scripts/ingest_europe_pmc.py in your current repo.
+# We therefore ingest in OR-mode and keep the drill/evidence pair fixed to ProductA+ProductB.
 python scripts/ingest_europe_pmc.py `
-  -p 'aspirin' `
-  -p 'ibuprofen' `
+  -p $ProductA `
+  -p $ProductB `
   --db $DbPath `
   --from-date $FromDate `
   --max-records $MaxRecords `
@@ -137,53 +142,54 @@ if ($LASTEXITCODE -ne 0) { throw "aggregate_metrics failed" }
 Write-Host ''
 
 # -----------------------------
-# 5) Rank co-mentions
+# 5) Rank co-mentions (FYI only)
 # -----------------------------
 Write-Host '== 5. Top co-mentions (doc-level) =='
-Write-Host 'Goal: show highest-scoring product pairs from ingested docs.'
+Write-Host 'Goal: show highest-scoring product pairs (informational; drill pair stays fixed).'
 Write-Host ''
 
-$coMentionOutput = python scripts/query_comentions.py --db $DbPath --limit 25
+python scripts/query_comentions.py --db $DbPath --limit 25 | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "query_comentions failed" }
-$coMentionOutput | Out-Host
 
-$topPairLine = $coMentionOutput | Where-Object { $_ -match '\s\|\s' } | Select-Object -First 1
-$DrillProductA = $ProductA
-$DrillProductB = $ProductB
-if ($topPairLine) {
-  $parts = $topPairLine -split '\s*\|\s*'
-  if ($parts.Length -ge 2) {
-    $DrillProductA = $parts[0].Trim()
-    $DrillProductB = $parts[1].Trim()
-  }
-}
-
+Write-Host ''
+Write-Host ("Selected drill pair: {0} + {1}" -f $ProductA, $ProductB) -ForegroundColor Yellow
 Write-Host ''
 
 # -----------------------------
-# 6) Drill down: which docs contain BOTH
+# 6) Drill down: which docs contain BOTH (fixed pair)
 # -----------------------------
 Write-Host '== 6. Drilldown: docs containing BOTH products =='
-Write-Host ('Goal: show concrete PMIDs supporting the co-mention ({0} + {1}).' -f $DrillProductA, $DrillProductB)
+Write-Host ('Goal: show concrete PMIDs supporting the co-mention ({0} + {1}).' -f $ProductA, $ProductB)
 Write-Host ''
 
-python scripts/which_doc.py $DrillProductA $DrillProductB --db $DbPath | Out-Host
+$docOutput = python scripts/which_doc.py $ProductA $ProductB --db $DbPath
 if ($LASTEXITCODE -ne 0) { throw "which_doc failed" }
+$docOutput | Out-Host
 
 Write-Host ''
 
 # -----------------------------
-# 7) Evidence: sentence-level proof + weights
+# 7) Evidence: sentence-level proof + weights (fixed pair)
 # -----------------------------
 Write-Host '== 7. Evidence: sentence-level mentions + weights =='
-Write-Host ('Goal: show exact sentences (title/abstract) and the scoring weights for {0} + {1}.' -f $DrillProductA, $DrillProductB)
+Write-Host ('Goal: show exact sentences (title/abstract) and the scoring weights for {0} + {1}.' -f $ProductA, $ProductB)
 Write-Host ''
 
-python scripts/show_sentence_evidence.py `
+$evidenceOutput = python scripts/show_sentence_evidence.py `
   --db $DbPath `
-  --product-a $DrillProductA `
-  --product-b $DrillProductB | Out-Host
+  --product-a $ProductA `
+  --product-b $ProductB
 if ($LASTEXITCODE -ne 0) { throw "show_sentence_evidence failed" }
+
+if ($evidenceOutput -match 'No evidence' -or $evidenceOutput -match 'No documents' -or $evidenceOutput -match 'No sentence') {
+  Write-Host ("No sentence evidence found for {0} + {1} in this run." -f $ProductA, $ProductB) -ForegroundColor Yellow
+  Write-Host "Tips:" -ForegroundColor Yellow
+  Write-Host "  - Increase MaxRecords (e.g., 20000) and re-run." -ForegroundColor Yellow
+  Write-Host "  - Broaden FromDate (e.g., 2015-01-01) for more co-mentions." -ForegroundColor Yellow
+  Write-Host "  - If you truly need AND-only ingestion, add filtering logic to ingest_europe_pmc.py (new flag) and then re-enable it here." -ForegroundColor Yellow
+} else {
+  $evidenceOutput | Out-Host
+}
 
 Write-Host ''
 
@@ -211,15 +217,16 @@ Write-Host ''
 # 9) Optional: Streamlit evidence browser
 # -----------------------------
 Write-Host '== 9. Optional: Streamlit evidence browser =='
-Write-Host 'Goal: browse labeled sentences interactively (requires streamlit).' 
+Write-Host 'Goal: browse labeled sentences interactively (requires streamlit in the venv).'
 
 if ($LaunchStreamlit) {
   python -c "import importlib.util; import sys; sys.exit(0 if importlib.util.find_spec('streamlit') else 1)"
   if ($LASTEXITCODE -ne 0) {
-    Write-Host 'Streamlit not installed. Run: pip install streamlit' -ForegroundColor Yellow
+    Write-Host 'Streamlit not installed in this venv. Run:' -ForegroundColor Yellow
+    Write-Host '  python -m pip install streamlit' -ForegroundColor Yellow
   } else {
     Write-Host 'Launching Streamlit app. Close the browser tab or CTRL+C to exit.' -ForegroundColor Yellow
-    streamlit run scripts/view_labeled_sentences.py
+    python -m streamlit run scripts/view_labeled_sentences.py
   }
 } else {
   Write-Host 'Skipping Streamlit launch (LaunchStreamlit = $false).' -ForegroundColor Yellow
@@ -230,6 +237,7 @@ Write-Host '============================================================'
 Write-Host ' Demo complete.'
 Write-Host '============================================================'
 Write-Host 'Notes:'
+Write-Host ' - This demo uses a per-run SQLite DB under data\demo_runs to avoid old runs contaminating results.'
+Write-Host ' - The ingest step currently retrieves records matching either product (OR). Ranking may show other frequent pairs; drill/evidence stays fixed to ProductA+ProductB.'
 Write-Host ' - If evidence includes HTML markup, strip tags during normalization for cleaner output.'
-Write-Host ' - If incremental status prints a future date, clamp/ignore partial dates so the watermark cannot jump ahead.'
 Write-Host ''

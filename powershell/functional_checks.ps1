@@ -6,7 +6,8 @@ param(
     [int]$MaxRecords = 25,
     [switch]$SkipPytests,
     [switch]$SkipNetworkSteps,
-    [switch]$SkipFunctionalQueries
+    [switch]$SkipFunctionalQueries,
+    [switch]$SkipStreamlit
 )
 
 Set-StrictMode -Version Latest
@@ -101,6 +102,25 @@ function Run-AggregateMetrics {
     )
 }
 
+function Run-ExportBatch {
+    if ($SkipNetworkSteps) {
+        Write-Host "Skipping batch export (SkipNetworkSteps set)." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Heading "Exporting batch outputs"
+    $dbPath = Join-Path $DataRoot "europepmc.sqlite"
+    $exportRoot = Join-Path $DataRoot "exports"
+    Ensure-Directory -Path $exportRoot
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        'scripts/export_batch.py',
+        '--db', $dbPath,
+        '--export-root', $exportRoot,
+        '--freq', 'W', 'M',
+        '--evidence-limit', '500'
+    )
+}
+
 function Run-Queries {
     if ($SkipNetworkSteps -or $SkipFunctionalQueries) {
         Write-Host "Skipping functional queries (SkipNetworkSteps or SkipFunctionalQueries set)." -ForegroundColor Yellow
@@ -124,6 +144,23 @@ function Run-Queries {
     )
 }
 
+function Run-StreamlitViewer {
+    if ($SkipStreamlit) {
+        Write-Host "Skipping Streamlit evidence browser (SkipStreamlit set)." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Heading "Optional Streamlit evidence browser"
+    & $PythonExe -c "import importlib.util; import sys; sys.exit(0 if importlib.util.find_spec('streamlit') else 1)"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Streamlit not installed. Run: pip install streamlit" -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "Launching Streamlit app. Close the browser tab or CTRL+C to exit." -ForegroundColor Yellow
+    & $PythonExe -m streamlit run scripts/view_labeled_sentences.py
+}
+
 Write-Heading "Starting functional PowerShell checks"
 Write-Host "Python executable: $PythonExe" -ForegroundColor DarkGray
 Write-Host "Data root: $DataRoot" -ForegroundColor DarkGray
@@ -134,6 +171,8 @@ Run-Pytests
 Run-Ingestion
 Run-LabelSentenceEvents
 Run-AggregateMetrics
+Run-ExportBatch
 Run-Queries
+Run-StreamlitViewer
 
 Write-Heading "All checks completed"

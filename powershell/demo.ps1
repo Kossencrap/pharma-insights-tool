@@ -6,6 +6,7 @@
 $ErrorActionPreference = 'Stop'
 
 # Force UTF-8 for this PowerShell session (prevents UnicodeEncodeError)
+chcp 65001 | Out-Null
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
@@ -21,6 +22,7 @@ $MetricsDir = Join-Path $RepoRoot 'data\processed\metrics'
 $FromDate   = '2022-01-01'
 $MaxRecords = 50
 
+# Default pair to drill down on if no co-mentions are found
 # Pair to drill down on (known to work in your dataset)
 $ProductA   = 'aspirin'
 $ProductB   = 'ibuprofen'
@@ -35,6 +37,7 @@ Write-Host '============================================================'
 Write-Host ("Repo   : {0}" -f $RepoRoot)
 Write-Host ("DB     : {0}" -f $DbPath)
 Write-Host ("Ingest : aspirin + ibuprofen since {0} (max {1})" -f $FromDate, $MaxRecords)
+Write-Host ("Drill  : {0} + {1} (auto-selected from top co-mention when available)" -f $ProductA, $ProductB)
 Write-Host ("Drill  : {0} + {1}" -f $ProductA, $ProductB)
 Write-Host '============================================================'
 Write-Host ''
@@ -140,8 +143,20 @@ Write-Host '== 5. Top co-mentions (doc-level) =='
 Write-Host 'Goal: show highest-scoring product pairs from ingested docs.'
 Write-Host ''
 
-python scripts/query_comentions.py --db $DbPath --limit 25 | Out-Host
+$coMentionOutput = python scripts/query_comentions.py --db $DbPath --limit 25
 if ($LASTEXITCODE -ne 0) { throw "query_comentions failed" }
+$coMentionOutput | Out-Host
+
+$topPairLine = $coMentionOutput | Where-Object { $_ -match '\s\|\s' } | Select-Object -First 1
+$DrillProductA = $ProductA
+$DrillProductB = $ProductB
+if ($topPairLine) {
+  $parts = $topPairLine -split '\s*\|\s*'
+  if ($parts.Length -ge 2) {
+    $DrillProductA = $parts[0].Trim()
+    $DrillProductB = $parts[1].Trim()
+  }
+}
 
 Write-Host ''
 
@@ -149,10 +164,10 @@ Write-Host ''
 # 6) Drill down: which docs contain BOTH
 # -----------------------------
 Write-Host '== 6. Drilldown: docs containing BOTH products =='
-Write-Host 'Goal: show concrete PMIDs supporting the co-mention.'
+Write-Host ('Goal: show concrete PMIDs supporting the co-mention ({0} + {1}).' -f $DrillProductA, $DrillProductB)
 Write-Host ''
 
-python scripts/which_doc.py $ProductA $ProductB --db $DbPath | Out-Host
+python scripts/which_doc.py $DrillProductA $DrillProductB --db $DbPath | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "which_doc failed" }
 
 Write-Host ''
@@ -161,13 +176,13 @@ Write-Host ''
 # 7) Evidence: sentence-level proof + weights
 # -----------------------------
 Write-Host '== 7. Evidence: sentence-level mentions + weights =='
-Write-Host 'Goal: show exact sentences (title/abstract) and the scoring weights.'
+Write-Host ('Goal: show exact sentences (title/abstract) and the scoring weights for {0} + {1}.' -f $DrillProductA, $DrillProductB)
 Write-Host ''
 
 python scripts/show_sentence_evidence.py `
   --db $DbPath `
-  --product-a $ProductA `
-  --product-b $ProductB | Out-Host
+  --product-a $DrillProductA `
+  --product-b $DrillProductB | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "show_sentence_evidence failed" }
 
 Write-Host ''

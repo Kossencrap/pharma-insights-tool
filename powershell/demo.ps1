@@ -20,7 +20,7 @@ $ExportRoot = Join-Path $RepoRoot 'data\exports'
 $MetricsDir = Join-Path $RepoRoot 'data\processed\metrics'
 
 $FromDate   = '2022-01-01'
-$MaxRecords = 50
+$MaxRecords = 500
 
 # Default pair to drill down on if no co-mentions are found
 # Pair to drill down on (known to work in your dataset)

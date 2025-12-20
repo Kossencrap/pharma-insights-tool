@@ -19,10 +19,10 @@ $ExportRoot = Join-Path $RepoRoot 'data\exports'
 $MetricsDir = Join-Path $RepoRoot 'data\processed\metrics'
 
 $FromDate   = '2022-01-01'
-$MaxRecords = 50
+$MaxRecords = 200
 
 # Pair to drill down on (known to work in your dataset)
-$ProductA   = 'aspirin'
+$ProductA   = 'omalizumab'
 $ProductB   = 'dupilumab'
 
 # Optional: set to $true if you want to launch the Streamlit evidence browser

@@ -10,6 +10,12 @@ Voer het script vanuit de projectroot:
 pwsh ./powershell/functional_checks.ps1
 ```
 
+Of, met Windows PowerShell:
+
+```powershell
+powershell ./powershell/functional_checks.ps1
+```
+
 Standaard acties:
 - Draait `pytest` om de unit/integratietests te draaien.
 - Voert een kleine Europe PMC-ingestie uit voor een voorbeeldproduct en slaat resultaten op in `data/powershell-checks/europepmc.sqlite`.

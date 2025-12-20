@@ -23,6 +23,7 @@ $FromDate   = '2022-01-01'
 $MaxRecords = 50
 
 # Default pair to drill down on if no co-mentions are found
+# Pair to drill down on (known to work in your dataset)
 $ProductA   = 'aspirin'
 $ProductB   = 'ibuprofen'
 
@@ -37,6 +38,7 @@ Write-Host ("Repo   : {0}" -f $RepoRoot)
 Write-Host ("DB     : {0}" -f $DbPath)
 Write-Host ("Ingest : aspirin + ibuprofen since {0} (max {1})" -f $FromDate, $MaxRecords)
 Write-Host ("Drill  : {0} + {1} (auto-selected from top co-mention when available)" -f $ProductA, $ProductB)
+Write-Host ("Drill  : {0} + {1}" -f $ProductA, $ProductB)
 Write-Host '============================================================'
 Write-Host ''
 

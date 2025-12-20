@@ -19,11 +19,11 @@ $ExportRoot = Join-Path $RepoRoot 'data\exports'
 $MetricsDir = Join-Path $RepoRoot 'data\processed\metrics'
 
 $FromDate   = '2022-01-01'
-$MaxRecords = 200
+$MaxRecords = 50
 
 # Pair to drill down on (known to work in your dataset)
-$ProductA   = 'omalizumab'
-$ProductB   = 'dupilumab'
+$ProductA   = 'aspirin'
+$ProductB   = 'ibuprofen'
 
 # Optional: set to $true if you want to launch the Streamlit evidence browser
 $LaunchStreamlit = $false
@@ -34,7 +34,7 @@ Write-Host ' Pharma Insights Tool — End-to-End Demo'
 Write-Host '============================================================'
 Write-Host ("Repo   : {0}" -f $RepoRoot)
 Write-Host ("DB     : {0}" -f $DbPath)
-Write-Host ("Ingest : dupilumab + Dupixent since {0} (max {1})" -f $FromDate, $MaxRecords)
+Write-Host ("Ingest : aspirin + ibuprofen since {0} (max {1})" -f $FromDate, $MaxRecords)
 Write-Host ("Drill  : {0} + {1}" -f $ProductA, $ProductB)
 Write-Host '============================================================'
 Write-Host ''
@@ -82,8 +82,8 @@ if (!(Test-Path '.\data')) {
 }
 
 python scripts/ingest_europe_pmc.py `
-  -p 'dupilumab' `
-  -p 'Dupixent' `
+  -p 'aspirin' `
+  -p 'ibuprofen' `
   --db $DbPath `
   --from-date $FromDate `
   --max-records $MaxRecords `

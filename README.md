@@ -31,6 +31,7 @@ pharma-insights-tool/
 │   └── functional_checks.ps1        # Convenience validation script for Windows
 ├── scripts/                         # CLI entry points for ingestion and analysis
 │   ├── aggregate_metrics.py         # Aggregate and export run-level metrics
+│   ├── export_sentiment_metrics.py  # Export sentiment ratios for dashboards
 │   ├── export_batch.py              # Persist structured outputs (JSONL/SQLite)
 │   ├── ingest_europe_pmc.py         # Pull Europe PMC data with product filters
 │   ├── label_sentence_events.py     # Apply heuristic context labels to sentences
@@ -38,6 +39,7 @@ pharma-insights-tool/
 │   ├── show_sentence_evidence.py    # Display labeled sentence evidence
 │   ├── split_sentences.py           # Deterministic sentence segmentation helper
 │   ├── view_labeled_sentences.py    # Browse labeled sentences and evidence weights
+│   ├── metrics_dashboard.py         # Streamlit dashboard for metrics + evidence
 │   └── which_doc.py                 # Locate example documents for product pairs
 ├── src/                             # Application source code
 │   ├── __init__.py                  # Package marker
@@ -94,6 +96,7 @@ pharma-insights-tool/
 │   └── exploration/.gitkeep      # Placeholder for exploratory notebooks
 ├── scripts/                      # CLI entry points for ingestion and analysis
 │   ├── aggregate_metrics.py      # Aggregate and export run metrics
+│   ├── export_sentiment_metrics.py # Export sentiment ratios for dashboards
 │   ├── export_batch.py           # Persist structured outputs to disk
 │   ├── ingest_europe_pmc.py      # Pull Europe PMC data with product filters
 │   ├── label_sentence_events.py  # Apply heuristic labels to sentences
@@ -101,6 +104,7 @@ pharma-insights-tool/
 │   ├── show_sentence_evidence.py # Display evidence for labeled sentences
 │   ├── split_sentences.py        # Deterministic sentence segmentation
 │   ├── view_labeled_sentences.py # Browse labeled sentences and evidence weights
+│   ├── metrics_dashboard.py      # Streamlit dashboard for metrics + evidence
 │   └── which_doc.py              # Find example documents for product pairs
 ├── powershell/                   # Windows-friendly helpers
 │   ├── README.md                 # How to run PowerShell checks
@@ -166,6 +170,22 @@ python scripts/label_sentence_sentiment.py --input data/processed/example_senten
 The script writes a sibling JSONL with added `sentiment_label`, `sentiment_score`,
 `sentiment_model`, and `sentiment_inference_ts` fields while keeping identifiers such as
 `doc_id`, `sentence_id`, `date`, and `product_mentions` intact.
+
+### Exporting metrics for dashboards
+With a populated SQLite database, export the weekly/monthly metrics that back dashboards:
+
+```bash
+python scripts/aggregate_metrics.py --db data/europepmc.sqlite --outdir data/processed/metrics
+python scripts/export_sentiment_metrics.py --db data/europepmc.sqlite --outdir data/processed/metrics
+```
+
+### Metrics dashboard
+Launch the Streamlit dashboard to visualize publication volume, mentions, co-mentions, and
+sentiment ratios with evidence drill-downs:
+
+```bash
+streamlit run scripts/metrics_dashboard.py
+```
 
 ### Proxy troubleshooting
 If your environment blocks outbound traffic via a corporate proxy, you can disable proxy usage or provide explicit proxy URLs:

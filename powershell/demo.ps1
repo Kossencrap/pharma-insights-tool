@@ -30,6 +30,8 @@ $ProductB   = 'ibuprofen'
 
 # Optional: set to $true if you want to launch the Streamlit evidence browser
 $LaunchStreamlit = $false
+# Optional: set to $true if you want to launch the Streamlit metrics dashboard
+$LaunchMetricsDashboard = $false
 
 Write-Host ''
 Write-Host '============================================================'
@@ -141,10 +143,23 @@ if ($LASTEXITCODE -ne 0) { throw "aggregate_metrics failed" }
 
 Write-Host ''
 
+# 5) Export sentiment ratios
 # -----------------------------
-# 5) Rank co-mentions (FYI only)
+Write-Host '== 5. Export sentiment ratios =='
+Write-Host 'Goal: export weekly/monthly sentiment ratio metrics for dashboards.'
+Write-Host ''
+
+python scripts/export_sentiment_metrics.py `
+  --db $DbPath `
+  --outdir $MetricsDir | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "export_sentiment_metrics failed" }
+
+Write-Host ''
+
 # -----------------------------
-Write-Host '== 5. Top co-mentions (doc-level) =='
+# 6) Top co-mentions (doc-level)
+# -----------------------------
+Write-Host '== 6. Top co-mentions (doc-level) =='
 Write-Host 'Goal: show highest-scoring product pairs (informational; drill pair stays fixed).'
 Write-Host ''
 
@@ -156,9 +171,9 @@ Write-Host ("Selected drill pair: {0} + {1}" -f $ProductA, $ProductB) -Foregroun
 Write-Host ''
 
 # -----------------------------
-# 6) Drill down: which docs contain BOTH (fixed pair)
+# 7) Drill down: which docs contain BOTH (fixed pair)
 # -----------------------------
-Write-Host '== 6. Drilldown: docs containing BOTH products =='
+Write-Host '== 7. Drilldown: docs containing BOTH products =='
 Write-Host ('Goal: show concrete PMIDs supporting the co-mention ({0} + {1}).' -f $ProductA, $ProductB)
 Write-Host ''
 
@@ -169,9 +184,9 @@ $docOutput | Out-Host
 Write-Host ''
 
 # -----------------------------
-# 7) Evidence: sentence-level proof + weights (fixed pair)
+# 8) Evidence: sentence-level proof + weights (fixed pair)
 # -----------------------------
-Write-Host '== 7. Evidence: sentence-level mentions + weights =='
+Write-Host '== 8. Evidence: sentence-level mentions + weights =='
 Write-Host ('Goal: show exact sentences (title/abstract) and the scoring weights for {0} + {1}.' -f $ProductA, $ProductB)
 Write-Host ''
 
@@ -194,9 +209,9 @@ if ($evidenceOutput -match 'No evidence' -or $evidenceOutput -match 'No document
 Write-Host ''
 
 # -----------------------------
-# 8) Export batch outputs
+# 9) Export batch outputs
 # -----------------------------
-Write-Host '== 8. Export batch outputs =='
+Write-Host '== 9. Export batch outputs =='
 Write-Host 'Goal: export raw tables, aggregates, and sentence evidence for downstream use.'
 Write-Host ''
 
@@ -214,9 +229,9 @@ if ($LASTEXITCODE -ne 0) { throw "export_batch failed" }
 Write-Host ''
 
 # -----------------------------
-# 9) Label sentiment on exported sentence evidence
+# 10) Label sentiment on exported sentence evidence
 # -----------------------------
-Write-Host '== 9. Label sentiment on evidence sentences =='
+Write-Host '== 10. Label sentiment on evidence sentences =='
 Write-Host 'Goal: attach deterministic sentiment labels to exported sentence evidence JSONL.'
 Write-Host ''
 
@@ -234,9 +249,9 @@ if (Test-Path $EvidenceJsonl) {
 Write-Host ''
 
 # -----------------------------
-# 10) Optional: Streamlit evidence browser
+# 11) Optional: Streamlit evidence browser
 # -----------------------------
-Write-Host '== 10. Optional: Streamlit evidence browser =='
+Write-Host '== 11. Optional: Streamlit evidence browser =='
 Write-Host 'Goal: browse labeled sentences interactively (requires streamlit in the venv).'
 
 if ($LaunchStreamlit) {
@@ -250,6 +265,27 @@ if ($LaunchStreamlit) {
   }
 } else {
   Write-Host 'Skipping Streamlit launch (LaunchStreamlit = $false).' -ForegroundColor Yellow
+}
+
+Write-Host ''
+
+# -----------------------------
+# 12) Optional: Streamlit metrics dashboard
+# -----------------------------
+Write-Host '== 12. Optional: Streamlit metrics dashboard =='
+Write-Host 'Goal: visualize metrics and sentiment ratios interactively.'
+
+if ($LaunchMetricsDashboard) {
+  python -c "import importlib.util; import sys; sys.exit(0 if importlib.util.find_spec('streamlit') else 1)"
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host 'Streamlit not installed in this venv. Run:' -ForegroundColor Yellow
+    Write-Host '  python -m pip install streamlit' -ForegroundColor Yellow
+  } else {
+    Write-Host 'Launching Streamlit dashboard. Close the browser tab or CTRL+C to exit.' -ForegroundColor Yellow
+    python -m streamlit run scripts/metrics_dashboard.py
+  }
+} else {
+  Write-Host 'Skipping Streamlit metrics dashboard (LaunchMetricsDashboard = $false).' -ForegroundColor Yellow
 }
 
 Write-Host ''

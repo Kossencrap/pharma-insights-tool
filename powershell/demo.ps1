@@ -214,9 +214,29 @@ if ($LASTEXITCODE -ne 0) { throw "export_batch failed" }
 Write-Host ''
 
 # -----------------------------
-# 9) Optional: Streamlit evidence browser
+# 9) Label sentiment on exported sentence evidence
 # -----------------------------
-Write-Host '== 9. Optional: Streamlit evidence browser =='
+Write-Host '== 9. Label sentiment on evidence sentences =='
+Write-Host 'Goal: attach deterministic sentiment labels to exported sentence evidence JSONL.'
+Write-Host ''
+
+$RunSlug = "run_{0}" -f (Get-Date -Format 'yyyyMMdd')
+$EvidenceJsonl = Join-Path $ExportRoot ("runs\{0}\evidence\sentence_evidence_{0}.jsonl" -f $RunSlug)
+
+if (Test-Path $EvidenceJsonl) {
+  python scripts/label_sentence_sentiment.py `
+    --input $EvidenceJsonl | Out-Host
+  if ($LASTEXITCODE -ne 0) { throw "label_sentence_sentiment failed" }
+} else {
+  Write-Host ("Evidence JSONL not found at {0}. Skipping sentiment labeling." -f $EvidenceJsonl) -ForegroundColor Yellow
+}
+
+Write-Host ''
+
+# -----------------------------
+# 10) Optional: Streamlit evidence browser
+# -----------------------------
+Write-Host '== 10. Optional: Streamlit evidence browser =='
 Write-Host 'Goal: browse labeled sentences interactively (requires streamlit in the venv).'
 
 if ($LaunchStreamlit) {

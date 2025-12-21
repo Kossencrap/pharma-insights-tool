@@ -271,6 +271,7 @@ def main() -> None:
         "Product mentions trend",
         group=None if product_filter else "product_canonical",
     )
+    _render_chart(st, mentions_filtered, "Product mentions trend")
     _render_evidence(
         st,
         db_path=db_path,
@@ -296,6 +297,7 @@ def main() -> None:
         co_mentions_filtered,
         "Co-mentions trend",
         group="partner" if product_filter else "product_a",
+        group="product_b" if product_filter else "product_a",
     )
     _render_evidence(
         st,

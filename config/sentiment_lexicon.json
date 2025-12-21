@@ -1,0 +1,61 @@
+{
+  "version": "lexicon_v1",
+  "positive_terms": [
+    "improved",
+    "improvement",
+    "effective",
+    "efficacy",
+    "benefit",
+    "benefits",
+    "better",
+    "reduced",
+    "reduction",
+    "increase",
+    "increased",
+    "safe",
+    "safety",
+    "tolerated",
+    "tolerability"
+  ],
+  "negative_terms": [
+    "worsened",
+    "worsening",
+    "ineffective",
+    "adverse",
+    "adverse event",
+    "toxicity",
+    "harm",
+    "risk",
+    "worse",
+    "failed",
+    "failure"
+  ],
+  "negations": [
+    "no",
+    "not",
+    "never",
+    "without",
+    "lack of"
+  ],
+  "hedges": [
+    "may",
+    "might",
+    "could",
+    "suggests",
+    "suggested",
+    "possible",
+    "potential",
+    "likely",
+    "appears",
+    "seems"
+  ],
+  "contrast_terms": [
+    "but",
+    "however",
+    "although",
+    "yet",
+    "whereas"
+  ],
+  "negation_window": 3,
+  "score_threshold": 1
+}

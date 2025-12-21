@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from src.analytics.time_series import TimeSeriesConfig, add_change_metrics, bucket_counts
+from src.analytics.time_series import (
+    TimeSeriesConfig,
+    add_change_metrics,
+    bucket_counts,
+    sentiment_bucket_counts,
+)
 
 
 def test_weekly_wow_change_detects_spike(execution_log):
@@ -64,3 +69,19 @@ def test_z_score_flags_large_jump(execution_log):
         "Time-series z-score",
         "drugB weekly jump to 20 produces z-score spike above threshold",
     )
+
+
+def test_sentiment_bucket_counts_include_ratios():
+    start = datetime(2024, 3, 4, tzinfo=timezone.utc)
+    rows = [
+        {"date": start, "sentiment_label": "POS"},
+        {"date": start + timedelta(days=1), "sentiment_label": "NEG"},
+        {"date": start + timedelta(days=2), "sentiment_label": "POS"},
+    ]
+
+    agg = sentiment_bucket_counts(rows, timestamp_column="date", freq="W")
+
+    assert len(agg) == 2
+    ratios = {row["sentiment_label"]: row["ratio"] for row in agg}
+    assert ratios["POS"] == 2 / 3
+    assert ratios["NEG"] == 1 / 3

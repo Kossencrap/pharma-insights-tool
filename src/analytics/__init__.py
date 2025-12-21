@@ -16,7 +16,14 @@ from .mention_extractor import (
     co_mentions_from_sentence,
     load_product_config,
 )
-from .time_series import TimeSeriesConfig, add_change_metrics, bucket_counts
+from .sentiment import SentimentResult, SentimentLabel, classify_batch, classify_sentence
+from .time_series import (
+    TimeSeriesConfig,
+    add_change_metrics,
+    add_sentiment_ratios,
+    bucket_counts,
+    sentiment_bucket_counts,
+)
 from .weights import (
     DocumentWeight,
     compute_document_weight,
@@ -62,4 +69,10 @@ __all__ = [
     "TimeSeriesConfig",
     "add_change_metrics",
     "bucket_counts",
+    "add_sentiment_ratios",
+    "sentiment_bucket_counts",
+    "SentimentLabel",
+    "SentimentResult",
+    "classify_batch",
+    "classify_sentence",
 ]

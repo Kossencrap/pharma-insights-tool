@@ -297,7 +297,6 @@ def main() -> None:
         co_mentions_filtered,
         "Co-mentions trend",
         group="partner" if product_filter else "product_a",
-        group="product_b" if product_filter else "product_a",
     )
     _render_evidence(
         st,

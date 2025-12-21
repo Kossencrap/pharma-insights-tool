@@ -33,6 +33,12 @@ $LaunchStreamlit = $false
 # Optional: set to $true if you want to launch the Streamlit metrics dashboard
 $LaunchMetricsDashboard = $false
 
+if ($LaunchStreamlit -and $LaunchMetricsDashboard) {
+  Write-Host 'Both Streamlit launch flags are enabled. Only one app can run at a time.' -ForegroundColor Yellow
+  Write-Host 'Disabling metrics dashboard launch for this run. Re-run with only one flag set to $true.' -ForegroundColor Yellow
+  $LaunchMetricsDashboard = $false
+}
+
 Write-Host ''
 Write-Host '============================================================'
 Write-Host ' Pharma Insights Tool — End-to-End Demo'

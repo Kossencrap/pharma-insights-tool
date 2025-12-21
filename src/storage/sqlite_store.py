@@ -99,6 +99,10 @@ CREATE_TABLES_SQL = [
         risk_terms TEXT,
         study_context TEXT,
         matched_terms TEXT,
+        sentiment_label TEXT,
+        sentiment_score REAL,
+        sentiment_model TEXT,
+        sentiment_inference_ts TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (doc_id, sentence_id, product_a, product_b),
         FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE,
@@ -177,6 +181,10 @@ CREATE_VIEWS_SQL = [
         se.risk_terms,
         se.study_context,
         se.matched_terms,
+        se.sentiment_label,
+        se.sentiment_score,
+        se.sentiment_model,
+        se.sentiment_inference_ts,
         se.created_at,
         COALESCE(dw.recency_weight, 1.0) AS recency_weight,
         dw.study_type,
@@ -286,6 +294,10 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         "risk_terms",
         "study_context",
         "matched_terms",
+        "sentiment_label",
+        "sentiment_score",
+        "sentiment_model",
+        "sentiment_inference_ts",
         "created_at",
     ]
     expected_pk_positions = {
@@ -297,8 +309,36 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
 
     pk_matches = all(row[5] == expected_pk_positions.get(row[1], 0) for row in rows)
 
-    if columns != expected_columns or not pk_matches:
+    if not pk_matches:
         conn.execute("DROP TABLE sentence_events")
+        return
+
+    existing = set(columns)
+    required = {
+        "doc_id",
+        "sentence_id",
+        "product_a",
+        "product_b",
+        "comparative_terms",
+        "relationship_types",
+        "risk_terms",
+        "study_context",
+        "matched_terms",
+        "created_at",
+    }
+    if not required.issubset(existing):
+        conn.execute("DROP TABLE sentence_events")
+        return
+
+    optional_columns = [
+        ("sentiment_label", "TEXT"),
+        ("sentiment_score", "REAL"),
+        ("sentiment_model", "TEXT"),
+        ("sentiment_inference_ts", "TEXT"),
+    ]
+    for column, ddl in optional_columns:
+        if column not in existing:
+            conn.execute(f"ALTER TABLE sentence_events ADD COLUMN {column} {ddl}")
 
 
 def _ensure_ingest_status_schema(conn: sqlite3.Connection) -> None:

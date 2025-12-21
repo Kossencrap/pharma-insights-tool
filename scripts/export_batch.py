@@ -3,7 +3,7 @@
 Exports SQLite-backed ingestion results to ``data/exports/`` as both CSV and
 Parquet (when pandas/pyarrow are available). Raw snapshots are trimmed via a
 retention window while aggregated metrics are retained for longer-term trend
-analysis.
+analysis. Evidence exports include sentiment fields when available.
 """
 
 from __future__ import annotations

@@ -122,3 +122,50 @@ def add_change_metrics(
     sort_keys = group_cols + ["bucket_start"]
     results.sort(key=lambda r: tuple(r.get(k) for k in sort_keys))
     return results
+
+
+def add_sentiment_ratios(
+    agg_rows: List[Dict[str, object]],
+    *,
+    label_column: str = "sentiment_label",
+    group_columns: Optional[Sequence[str]] = None,
+) -> List[Dict[str, object]]:
+    group_cols = list(group_columns or [])
+    totals: Dict[tuple, float] = {}
+
+    for row in agg_rows:
+        bucket = row.get("bucket_start")
+        key = (*tuple(row.get(col) for col in group_cols), bucket)
+        totals[key] = totals.get(key, 0.0) + float(row.get("count", 0) or 0)
+
+    enriched: List[Dict[str, object]] = []
+    for row in agg_rows:
+        bucket = row.get("bucket_start")
+        key = (*tuple(row.get(col) for col in group_cols), bucket)
+        total = totals.get(key) or 0.0
+        ratio = (float(row.get("count", 0) or 0) / total) if total else None
+        updated = dict(row)
+        updated["ratio"] = ratio
+        enriched.append(updated)
+
+    sort_keys = group_cols + [label_column, "bucket_start"]
+    enriched.sort(key=lambda r: tuple(r.get(k) for k in sort_keys))
+    return enriched
+
+
+def sentiment_bucket_counts(
+    rows: Iterable[Dict[str, object]],
+    *,
+    timestamp_column: str = "date",
+    label_column: str = "sentiment_label",
+    freq: str = "W",
+    group_columns: Optional[Sequence[str]] = None,
+) -> List[Dict[str, object]]:
+    group_cols = list(group_columns or []) + [label_column]
+    config = TimeSeriesConfig(
+        timestamp_column=timestamp_column,
+        freq=freq,
+        group_columns=group_cols,
+    )
+    agg = bucket_counts(config, rows)
+    return add_sentiment_ratios(agg, label_column=label_column, group_columns=group_columns)

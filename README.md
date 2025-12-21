@@ -155,6 +155,18 @@ python scripts/query_comentions.py --db data/europepmc.sqlite --limit 25
 python scripts/which_doc.py metformin insulin --db data/europepmc.sqlite
 ```
 
+### Labeling sentence sentiment
+Once you have sentence-level JSONL (for example, extracted into `data/processed/`), you can
+annotate it with deterministic sentiment labels:
+
+```bash
+python scripts/label_sentence_sentiment.py --input data/processed/example_sentences.jsonl
+```
+
+The script writes a sibling JSONL with added `sentiment_label`, `sentiment_score`,
+`sentiment_model`, and `sentiment_inference_ts` fields while keeping identifiers such as
+`doc_id`, `sentence_id`, `date`, and `product_mentions` intact.
+
 ### Proxy troubleshooting
 If your environment blocks outbound traffic via a corporate proxy, you can disable proxy usage or provide explicit proxy URLs:
 

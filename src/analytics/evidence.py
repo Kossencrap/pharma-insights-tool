@@ -29,6 +29,10 @@ class SentenceEvidence:
     combined_weight: Optional[float]
     labels: List[str]
     matched_terms: Optional[str]
+    sentiment_label: Optional[str]
+    sentiment_score: Optional[float]
+    sentiment_model: Optional[str]
+    sentiment_inference_ts: Optional[str]
 
     @property
     def evidence_weight(self) -> float:
@@ -54,6 +58,10 @@ class SentenceEvidence:
             "evidence_weight": self.evidence_weight,
             "labels": self.labels,
             "matched_terms": self.matched_terms,
+            "sentiment_label": self.sentiment_label,
+            "sentiment_score": self.sentiment_score,
+            "sentiment_model": self.sentiment_model,
+            "sentiment_inference_ts": self.sentiment_inference_ts,
         }
 
 
@@ -85,7 +93,11 @@ def fetch_sentence_evidence(
                se.relationship_types,
                se.risk_terms,
                se.study_context,
-               se.matched_terms
+               se.matched_terms,
+               se.sentiment_label,
+               se.sentiment_score,
+               se.sentiment_model,
+               se.sentiment_inference_ts
         FROM co_mentions_sentences cms
         JOIN sentences s ON cms.sentence_id = s.sentence_id
         JOIN documents d ON cms.doc_id = d.doc_id
@@ -146,6 +158,10 @@ def fetch_sentence_evidence(
                 combined_weight=row[13],
                 labels=labels,
                 matched_terms=row[18],
+                sentiment_label=row[19],
+                sentiment_score=row[20],
+                sentiment_model=row[21],
+                sentiment_inference_ts=row[22],
             )
         )
 

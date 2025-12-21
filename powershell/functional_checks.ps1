@@ -102,6 +102,23 @@ function Run-AggregateMetrics {
     )
 }
 
+function Run-SentimentMetrics {
+    if ($SkipNetworkSteps) {
+        Write-Host "Skipping sentiment metric export (SkipNetworkSteps set)." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Heading "Exporting sentiment ratio metrics"
+    $dbPath = Join-Path $DataRoot "europepmc.sqlite"
+    $outDir = Join-Path $DataRoot "metrics"
+    Ensure-Directory -Path $outDir
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        'scripts/export_sentiment_metrics.py',
+        '--db', $dbPath,
+        '--outdir', $outDir
+    )
+}
+
 function Run-ExportBatch {
     if ($SkipNetworkSteps) {
         Write-Host "Skipping batch export (SkipNetworkSteps set)." -ForegroundColor Yellow
@@ -157,8 +174,25 @@ function Run-StreamlitViewer {
         return
     }
 
-    Write-Host "Launching Streamlit app. Close the browser tab or CTRL+C to exit." -ForegroundColor Yellow
+    Write-Host "Launching Streamlit evidence browser. Close the browser tab or CTRL+C to exit." -ForegroundColor Yellow
     & $PythonExe -m streamlit run scripts/view_labeled_sentences.py
+}
+
+function Run-MetricsDashboard {
+    if ($SkipStreamlit) {
+        Write-Host "Skipping Streamlit metrics dashboard (SkipStreamlit set)." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Heading "Optional Streamlit metrics dashboard"
+    & $PythonExe -c "import importlib.util; import sys; sys.exit(0 if importlib.util.find_spec('streamlit') else 1)"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Streamlit not installed. Run: pip install streamlit" -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "Launching Streamlit metrics dashboard. Close the browser tab or CTRL+C to exit." -ForegroundColor Yellow
+    & $PythonExe -m streamlit run scripts/metrics_dashboard.py
 }
 
 Write-Heading "Starting functional PowerShell checks"
@@ -171,8 +205,10 @@ Run-Pytests
 Run-Ingestion
 Run-LabelSentenceEvents
 Run-AggregateMetrics
+Run-SentimentMetrics
 Run-ExportBatch
 Run-Queries
 Run-StreamlitViewer
+Run-MetricsDashboard
 
 Write-Heading "All checks completed"

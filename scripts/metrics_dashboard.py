@@ -178,6 +178,27 @@ def _render_chart(st, frame, title: str, *, group: Optional[str] = None, value: 
     st.altair_chart(chart, use_container_width=True)
 
 
+def _with_partner_column(frame, product: str):
+    if frame is None:
+        return frame
+    if hasattr(frame, "loc"):
+        partner = frame["product_b"].where(
+            frame["product_a"].str.lower() == product.lower(), frame["product_a"]
+        )
+        updated = frame.copy()
+        updated["partner"] = partner
+        return updated
+    updated_rows = []
+    for row in frame:
+        row_copy = dict(row)
+        if row.get("product_a", "").lower() == product.lower():
+            row_copy["partner"] = row.get("product_b")
+        else:
+            row_copy["partner"] = row.get("product_a")
+        updated_rows.append(row_copy)
+    return updated_rows
+
+
 def main() -> None:
     try:
         import streamlit as st
@@ -244,6 +265,12 @@ def main() -> None:
         ]
     else:
         mentions_filtered = mentions_frame
+    _render_chart(
+        st,
+        mentions_filtered,
+        "Product mentions trend",
+        group=None if product_filter else "product_canonical",
+    )
     _render_chart(st, mentions_filtered, "Product mentions trend")
     _render_evidence(
         st,
@@ -263,10 +290,13 @@ def main() -> None:
             (co_mentions_filtered["product_a"].str.lower() == partner_filter.lower())
             | (co_mentions_filtered["product_b"].str.lower() == partner_filter.lower())
         ]
+    if product_filter:
+        co_mentions_filtered = _with_partner_column(co_mentions_filtered, product_filter)
     _render_chart(
         st,
         co_mentions_filtered,
         "Co-mentions trend",
+        group="partner" if product_filter else "product_a",
         group="product_b" if product_filter else "product_a",
     )
     _render_evidence(

@@ -7,11 +7,11 @@
 - **Time-series aggregation utilities** compute weekly/monthly buckets plus change metrics, covering the “volume & momentum” metric expected in early dashboards. 【F:src/analytics/time_series.py†L9-L124】
 - **CLI runners and helper scripts** exist for ingestion, sentence splitting, labeling, export, and co-mention inspection, enabling end-to-end dry runs on small batches. 【F:README.md†L32-L166】
 - **Test scaffolding** spans ingestion, structuring, analytics, and export flows, signaling that key pieces of the pipeline already have regression coverage. 【F:README.md†L65-L80】
+- **Sentence-level context labeling and evidence exports** are available via `label_sentence_events.py`, `context_labels.py`, and the batch export/evidence helpers. 【F:scripts/label_sentence_events.py†L1-L112】【F:src/analytics/context_labels.py†L1-L208】【F:scripts/export_batch.py†L1-L210】
 
 ## Not yet covered for Phase 1 goals
-- **Narrative/sentiment/risk classification** is not implemented yet; current scope explicitly excludes NLP modeling, so Phase 1 insight layers (sentiment direction, risk framing) remain to be built. 【F:README.md†L118-L121】
+- **Sentiment classification** is not implemented yet; current scope explicitly excludes ML-based NLP modeling, so the narrative direction layer remains to be built. 【F:README.md†L118-L121】
 - **Evidence-linked dashboards** are not present; we have pipeline pieces but no user-facing visualization or “change since last review” view described in the MVP. 【F:README.md†L118-L153】
-- **Automation of evidence weighting and traceability** beyond heuristic configs has not been surfaced into outputs or reports yet, leaving provenance scoring and presentation to implement.
 
 ## Overall readout
-The ingestion-to-structuring path and supporting analytics utilities are in place, so Phase 1 is well underway on data acquisition, normalization, and early competitive signals. The remaining gap to declare Phase 1 complete is adding the narrative/sentiment/risk detection layer and exposing evidence-linked dashboards that answer the MVP questions with traceable outputs.
+The ingestion-to-structuring path and supporting analytics utilities are in place, so Phase 1 is well underway on data acquisition, normalization, and early competitive signals. The remaining gap to declare Phase 1 complete is adding the sentiment detection layer and exposing evidence-linked dashboards that answer the MVP questions with traceable outputs.

@@ -73,8 +73,25 @@ def fetch_sentence_evidence(
     pub_after: Optional[str] = None,
     limit: int = 200,
 ) -> List[SentenceEvidence]:
+    columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(sentence_events)").fetchall()
+    }
+    sentiment_label_expr = (
+        "se.sentiment_label" if "sentiment_label" in columns else "NULL"
+    )
+    sentiment_score_expr = (
+        "se.sentiment_score" if "sentiment_score" in columns else "NULL"
+    )
+    sentiment_model_expr = (
+        "se.sentiment_model" if "sentiment_model" in columns else "NULL"
+    )
+    sentiment_ts_expr = (
+        "se.sentiment_inference_ts"
+        if "sentiment_inference_ts" in columns
+        else "NULL"
+    )
     query = [
-        """
+        f"""
         SELECT cms.doc_id,
                cms.sentence_id,
                cms.product_a,
@@ -94,10 +111,10 @@ def fetch_sentence_evidence(
                se.risk_terms,
                se.study_context,
                se.matched_terms,
-               se.sentiment_label,
-               se.sentiment_score,
-               se.sentiment_model,
-               se.sentiment_inference_ts
+               {sentiment_label_expr},
+               {sentiment_score_expr},
+               {sentiment_model_expr},
+               {sentiment_ts_expr}
         FROM co_mentions_sentences cms
         JOIN sentences s ON cms.sentence_id = s.sentence_id
         JOIN documents d ON cms.doc_id = d.doc_id

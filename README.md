@@ -37,12 +37,14 @@ pharma-insights-tool/
 │   ├── query_comentions.py          # Query product co-mentions from SQLite
 │   ├── show_sentence_evidence.py    # Display labeled sentence evidence
 │   ├── split_sentences.py           # Deterministic sentence segmentation helper
+│   ├── view_labeled_sentences.py    # Browse labeled sentences and evidence weights
 │   └── which_doc.py                 # Locate example documents for product pairs
 ├── src/                             # Application source code
 │   ├── __init__.py                  # Package marker
 │   ├── analytics/                   # Analytics and labeling logic
 │   │   ├── __init__.py              # Analytics package marker
 │   │   ├── context_labels.py        # Rule-based context labeling of sentences
+│   │   ├── evidence.py              # Sentence-level evidence retrieval helpers
 │   │   ├── mention_extractor.py     # Product mention extraction from sentences
 │   │   ├── time_series.py           # Time-series metrics for literature trends
 │   │   └── weights.py               # Weighting helpers for evidence scoring
@@ -98,6 +100,7 @@ pharma-insights-tool/
 │   ├── query_comentions.py       # Query product co-mentions from SQLite
 │   ├── show_sentence_evidence.py # Display evidence for labeled sentences
 │   ├── split_sentences.py        # Deterministic sentence segmentation
+│   ├── view_labeled_sentences.py # Browse labeled sentences and evidence weights
 │   └── which_doc.py              # Find example documents for product pairs
 ├── powershell/                   # Windows-friendly helpers
 │   ├── README.md                 # How to run PowerShell checks
@@ -118,7 +121,7 @@ pharma-insights-tool/
 ## Current scope
 - Literature ingestion from Europe PMC
 - Deterministic sentence structuring
-- No NLP or modeling yet
+- No ML-based NLP yet; rule-based context labeling is available
 
 ## Pipeline
 Europe PMC → Document → Section → Sentence

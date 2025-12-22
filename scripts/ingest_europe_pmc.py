@@ -440,19 +440,24 @@ def run_ingestion(
                 break
 
     if incremental and conn:
-        status_identifier = resolved_status_key or _default_status_key(
-            product_names, args.include_reviews, args.include_trials
-        )
-        update_ingest_status(
-            conn,
-            status_identifier,
-            last_publication_date=latest_pub_date,
-            last_pmid=latest_pmid,
-        )
-        print(
-            "Updated incremental status "
-            f"({status_identifier}) to publication date {latest_pub_date}"
-        )
+        if latest_pub_date:
+            status_identifier = resolved_status_key or _default_status_key(
+                product_names, args.include_reviews, args.include_trials
+            )
+            update_ingest_status(
+                conn,
+                status_identifier,
+                last_publication_date=latest_pub_date,
+                last_pmid=latest_pmid,
+            )
+            print(
+                "Updated incremental status "
+                f"({status_identifier}) to publication date {latest_pub_date}"
+            )
+        else:
+            print(
+                "Skipping incremental status update because no publication dates were ingested."
+            )
     print(f"Raw records written to: {raw_path}")
     print(f"Structured documents written to: {structured_path}")
 

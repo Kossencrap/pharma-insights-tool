@@ -23,6 +23,11 @@ def _read_metrics(path: Path):
         return None
 
     if pd is None:
+        if path.suffix == ".parquet":
+            raise RuntimeError(
+                "pandas is required to read parquet metrics. "
+                "Install pandas or export JSON metrics instead."
+            )
         with path.open("r", encoding="utf-8") as f:
             rows = json.load(f)
         return rows
@@ -214,18 +219,22 @@ def main() -> None:
     freq_label = st.sidebar.selectbox("Time frequency", ["Weekly", "Monthly"])
     freq = "w" if freq_label == "Weekly" else "m"
 
-    documents_frame = _ensure_datetime(
-        _read_metrics(metrics_dir / f"documents_{freq}.parquet")
-    )
-    mentions_frame = _ensure_datetime(
-        _read_metrics(metrics_dir / f"mentions_{freq}.parquet")
-    )
-    co_mentions_frame = _ensure_datetime(
-        _read_metrics(metrics_dir / f"co_mentions_{freq}.parquet")
-    )
-    sentiment_frame = _ensure_datetime(
-        _read_metrics(metrics_dir / f"sentiment_{freq}.parquet")
-    )
+    try:
+        documents_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"documents_{freq}.parquet")
+        )
+        mentions_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"mentions_{freq}.parquet")
+        )
+        co_mentions_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"co_mentions_{freq}.parquet")
+        )
+        sentiment_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"sentiment_{freq}.parquet")
+        )
+    except RuntimeError as exc:
+        st.error(str(exc))
+        return
 
     products = _load_products(mentions_frame)
     selected_product = st.sidebar.selectbox(
@@ -271,7 +280,6 @@ def main() -> None:
         "Product mentions trend",
         group=None if product_filter else "product_canonical",
     )
-    _render_chart(st, mentions_filtered, "Product mentions trend")
     _render_evidence(
         st,
         db_path=db_path,

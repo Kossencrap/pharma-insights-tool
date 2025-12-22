@@ -20,6 +20,7 @@ Standaard acties:
 - Draait `pytest` om de unit/integratietests te draaien.
 - Voert een kleine Europe PMC-ingestie uit voor een voorbeeldproduct en slaat resultaten op in `data/powershell-checks/europepmc.sqlite`.
 - Labelt co-mention-zinnen met `label_sentence_events.py`.
+- Labelt sentiment op zinsniveau met `label_sentence_sentiment.py` op basis van de gestructureerde JSONL-uitvoer uit ingestie en schrijft dit terug naar SQLite.
 - Berekent wekelijkse/maandelijkse metrics met `aggregate_metrics.py`.
 - Exporteert sentiment-ratio metrics met `export_sentiment_metrics.py`.
 - Draait `query_comentions.py`, `which_doc.py` en `show_sentence_evidence.py` tegen die database als functionele check.

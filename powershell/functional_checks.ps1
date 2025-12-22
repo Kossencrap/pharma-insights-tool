@@ -67,6 +67,9 @@ function Run-Ingestion {
     $ingestArgs += @('--from-date', '2022-01-01', '--max-records', $MaxRecords, '--db', $dbPath, '--incremental')
 
     Invoke-ExternalCommand -Executable $PythonExe -Arguments $ingestArgs
+
+    $prefix = ($Products[0]).ToLower() -replace '\s+', '_'
+    $script:StructuredJsonl = Join-Path "data/processed" ("{0}_structured.jsonl" -f $prefix)
 }
 
 function Run-LabelSentenceEvents {
@@ -93,8 +96,17 @@ function Run-LabelSentenceSentiment {
 
     Write-Heading "Labeling sentence sentiment"
     $dbPath = Join-Path $DataRoot "europepmc.sqlite"
+    if (-not $script:StructuredJsonl) {
+        Write-Host "Structured JSONL path not set. Ensure ingestion runs first." -ForegroundColor Yellow
+        return
+    }
+    if (-not (Test-Path $script:StructuredJsonl)) {
+        Write-Host ("Structured JSONL not found at {0}. Skipping sentiment labeling." -f $script:StructuredJsonl) -ForegroundColor Yellow
+        return
+    }
     Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
         'scripts/label_sentence_sentiment.py',
+        '--input', $script:StructuredJsonl,
         '--db', $dbPath
     )
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Dict, List
 
@@ -99,6 +100,11 @@ def main() -> None:
 
     con = sqlite3.connect(args.db)
     rows = _load_rows(con)
+    if not rows:
+        print(
+            "Warning: no sentiment rows found. Ensure ingestion stored sentiment labels.",
+            file=sys.stderr,
+        )
 
     sentiment: Dict[str, List[dict]] = {}
     for freq in args.freq:

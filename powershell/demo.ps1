@@ -20,6 +20,8 @@ $RunStamp   = Get-Date -Format 'yyyyMMdd_HHmmss'
 $DbPath     = Join-Path $RunDir ("europepmc_demo_{0}.sqlite" -f $RunStamp)
 $ExportRoot = Join-Path $RepoRoot 'data\exports'
 $MetricsDir = Join-Path $RepoRoot 'data\processed\metrics'
+$ProductConfigPath = Join-Path $RepoRoot 'config\products.json'
+$StudyWeightConfigPath = Join-Path $RepoRoot 'config\study_type_weights.json'
 
 $FromDate   = '2022-01-01'
 $MaxRecords = 5000
@@ -81,6 +83,43 @@ python -m pip install -e . | Out-Host
 
 Write-Host 'Quick import check (src):'
 python -c "import src; print('import src OK')" | Out-Host
+
+Write-Host ''
+
+# -----------------------------
+# 1.5) Config snapshot (products + weights)
+# -----------------------------
+Write-Host '== 1.5 Config snapshot =='
+
+if (Test-Path $ProductConfigPath) {
+  Write-Host ("Product config: {0}" -f $ProductConfigPath) -ForegroundColor DarkGray
+  $productConfigJson = Get-Content -Raw $ProductConfigPath | ConvertFrom-Json
+  $productLookup = @{}
+  foreach ($entry in $productConfigJson.PSObject.Properties) {
+    $productLookup[$entry.Name.ToLower()] = $entry.Value
+  }
+  foreach ($product in @($ProductA, $ProductB)) {
+    $key = $product.ToLower()
+    if ($productLookup.ContainsKey($key)) {
+      $aliases = $productLookup[$key] -join ", "
+      Write-Host ("  {0}: {1}" -f $product, $aliases)
+    } else {
+      Write-Host ("  {0}: NOT FOUND in product config" -f $product) -ForegroundColor Yellow
+    }
+  }
+} else {
+  Write-Host ("Product config not found at {0}" -f $ProductConfigPath) -ForegroundColor Yellow
+}
+
+if (Test-Path $StudyWeightConfigPath) {
+  Write-Host ("Study weight config: {0}" -f $StudyWeightConfigPath) -ForegroundColor DarkGray
+  $weightJson = Get-Content -Raw $StudyWeightConfigPath | ConvertFrom-Json
+  $weightKeys = $weightJson.PSObject.Properties.Name | Sort-Object
+  Write-Host ("  Weight entries: {0}" -f $weightKeys.Count)
+  Write-Host ("  Keys: {0}" -f ($weightKeys -join ", "))
+} else {
+  Write-Host ("Study weight config not found at {0}" -f $StudyWeightConfigPath) -ForegroundColor Yellow
+}
 
 Write-Host ''
 
@@ -299,6 +338,17 @@ Write-Host ''
 Write-Host '============================================================'
 Write-Host ' Demo complete.'
 Write-Host '============================================================'
+Write-Host 'Ops checklist (Phase 1 handoff):'
+Write-Host ("  Products: {0}, {1}" -f $ProductA, $ProductB)
+Write-Host ("  Product config: {0}" -f $ProductConfigPath)
+Write-Host ("  Study weight config: {0}" -f $StudyWeightConfigPath)
+Write-Host ("  SQLite DB: {0}" -f $DbPath)
+Write-Host ("  Metrics dir: {0}" -f $MetricsDir)
+Write-Host ("  Export root: {0}" -f $ExportRoot)
+Write-Host ("  Evidence JSONL: {0}" -f $EvidenceJsonl)
+Write-Host '  Key scripts run: ingest_europe_pmc.py, label_sentence_events.py, aggregate_metrics.py, export_sentiment_metrics.py,'
+Write-Host '    query_comentions.py, which_doc.py, show_sentence_evidence.py, export_batch.py, label_sentence_sentiment.py'
+Write-Host '  Optional dashboards: view_labeled_sentences.py, metrics_dashboard.py'
 Write-Host 'Notes:'
 Write-Host ' - This demo uses a per-run SQLite DB under data\demo_runs to avoid old runs contaminating results.'
 Write-Host ' - The ingest step currently retrieves records matching either product (OR). Ranking may show other frequent pairs; drill/evidence stays fixed to ProductA+ProductB.'

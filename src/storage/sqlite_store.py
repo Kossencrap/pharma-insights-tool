@@ -524,6 +524,39 @@ def insert_sentence_events(
     )
 
 
+def update_sentence_event_sentiment(
+    conn: sqlite3.Connection,
+    sentiment_rows: Iterable[
+        Tuple[
+            Optional[str],
+            Optional[float],
+            Optional[str],
+            Optional[str],
+            str,
+            str,
+            str,
+            str,
+        ]
+    ],
+) -> None:
+    """Update sentiment fields for existing sentence_events rows."""
+
+    conn.executemany(
+        """
+        UPDATE sentence_events
+        SET sentiment_label = ?,
+            sentiment_score = ?,
+            sentiment_model = ?,
+            sentiment_inference_ts = ?
+        WHERE doc_id = ?
+          AND sentence_id = ?
+          AND product_a = ?
+          AND product_b = ?
+        """,
+        sentiment_rows,
+    )
+
+
 def insert_co_mentions_sentences(
     conn: sqlite3.Connection,
     doc_id: str,

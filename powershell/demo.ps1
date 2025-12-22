@@ -246,7 +246,8 @@ $EvidenceJsonl = Join-Path $ExportRoot ("runs\{0}\evidence\sentence_evidence_{0}
 
 if (Test-Path $EvidenceJsonl) {
   python scripts/label_sentence_sentiment.py `
-    --input $EvidenceJsonl | Out-Host
+    --input $EvidenceJsonl `
+    --db $DbPath | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "label_sentence_sentiment failed" }
 } else {
   Write-Host ("Evidence JSONL not found at {0}. Skipping sentiment labeling." -f $EvidenceJsonl) -ForegroundColor Yellow

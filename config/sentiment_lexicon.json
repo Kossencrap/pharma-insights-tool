@@ -2,6 +2,8 @@
   "version": "lexicon_v1",
   "positive_terms": [
     "improved",
+    "improve",
+    "improving",
     "improvement",
     "effective",
     "efficacy",
@@ -12,10 +14,19 @@
     "reduction",
     "increase",
     "increased",
+    "enhance",
+    "enhances",
+    "ameliorate",
+    "ameliorates",
     "safe",
     "safety",
     "tolerated",
-    "tolerability"
+    "tolerability",
+    "promising",
+    "success",
+    "successful",
+    "recommend",
+    "recommended"
   ],
   "negative_terms": [
     "worsened",
@@ -26,6 +37,8 @@
     "toxicity",
     "harm",
     "risk",
+    "concern",
+    "concerns",
     "worse",
     "failed",
     "failure"

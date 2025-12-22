@@ -89,19 +89,18 @@ function Run-LabelSentenceEvents {
 }
 
 function Run-LabelSentenceSentiment {
-    if ($SkipNetworkSteps) {
-        Write-Host "Skipping sentence-sentiment labeling (SkipNetworkSteps set)." -ForegroundColor Yellow
-        return
-    }
-
     Write-Heading "Labeling sentence sentiment"
     $dbPath = Join-Path $DataRoot "europepmc.sqlite"
     if (-not $script:StructuredJsonl) {
-        Write-Host "Structured JSONL path not set. Ensure ingestion runs first." -ForegroundColor Yellow
-        return
+        $prefix = ($Products[0]).ToLower() -replace '\s+', '_'
+        $script:StructuredJsonl = Join-Path "data/processed" ("{0}_structured.jsonl" -f $prefix)
     }
     if (-not (Test-Path $script:StructuredJsonl)) {
-        Write-Host ("Structured JSONL not found at {0}. Skipping sentiment labeling." -f $script:StructuredJsonl) -ForegroundColor Yellow
+        if ($SkipNetworkSteps) {
+            Write-Host ("Structured JSONL not found at {0}. Skipping sentiment labeling (SkipNetworkSteps set)." -f $script:StructuredJsonl) -ForegroundColor Yellow
+            return
+        }
+        Write-Host ("Structured JSONL not found at {0}. Ensure ingestion runs first." -f $script:StructuredJsonl) -ForegroundColor Yellow
         return
     }
     Invoke-ExternalCommand -Executable $PythonExe -Arguments @(

@@ -130,6 +130,16 @@ pharma-insights-tool/
 ## Pipeline
 Europe PMC → Document → Section → Sentence
 
+## Testing
+After installing dependencies, run the full pytest suite to validate ingestion and analytics behavior:
+
+```bash
+python -m pytest
+```
+
+For a scripted end-to-end validation (including pytest and sentiment labeling), see
+`powershell/functional_checks.ps1`.
+
 ## Running ingestion locally
 Use the CLI runner to pull a small batch of Europe PMC results and emit both raw and structured outputs:
 

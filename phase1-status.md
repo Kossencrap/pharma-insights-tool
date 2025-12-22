@@ -11,10 +11,10 @@
 - **Test scaffolding** spans ingestion, structuring, analytics, and export flows, signaling that key pieces of the pipeline already have regression coverage. 【F:README.md†L65-L80】
 - **Sentence-level context labeling and evidence exports** are available via `label_sentence_events.py`, `context_labels.py`, and the batch export/evidence helpers. 【F:scripts/label_sentence_events.py†L1-L112】【F:src/analytics/context_labels.py†L1-L208】【F:scripts/export_batch.py†L1-L210】
 
-## Recommended Phase 1 hardening tasks
-- **Run the full pytest suite** after installing dependencies to validate regression coverage end to end. 【F:README.md†L65-L80】
-- **Ensure sentiment labeling is always included in functional checks** by running `scripts/label_sentence_sentiment.py --db ...` after ingestion, so sentiment metrics are available for dashboards. 【F:powershell/functional_checks.ps1†L81-L128】
-- **Refresh Phase 1 status documentation** when new capabilities land to keep MVP readiness current. 【F:phase1-status.md†L1-L14】
+## Phase 1 operational hardening (now wired into checks)
+- **Run the full pytest suite** after installing dependencies to validate regression coverage end to end. This is the default in `powershell/functional_checks.ps1` unless `-SkipPytests` is set. 【F:README.md†L103-L112】【F:powershell/functional_checks.ps1†L33-L57】
+- **Ensure sentiment labeling is always included in functional checks** by keeping `label_sentence_sentiment.py` in the default run. The functional checks now resolve the structured JSONL path automatically so sentiment labeling runs whenever the data exists. 【F:powershell/functional_checks.ps1†L90-L122】
+- **Refresh Phase 1 status documentation** when new capabilities land to keep MVP readiness current (this update). 【F:phase1-status.md†L1-L14】
 
 ## Overall readout
 Phase 1 MVP requirements are now functionally met: ingestion, narrative/sentiment metrics, co-mentions, and evidence-linked dashboards work together for at least one product. The remaining Phase 1 work is operational hardening (making sentiment labeling part of every workflow, running the full test suite regularly, and keeping status docs up to date) before moving on to Phase 2 data sources and richer analytics.

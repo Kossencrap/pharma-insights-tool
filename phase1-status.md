@@ -12,8 +12,8 @@
 - **Sentence-level context labeling and evidence exports** are available via `label_sentence_events.py`, `context_labels.py`, and the batch export/evidence helpers. 【F:scripts/label_sentence_events.py†L1-L112】【F:src/analytics/context_labels.py†L1-L208】【F:scripts/export_batch.py†L1-L210】
 
 ## Recommended Phase 1 hardening tasks
-- **Install dependencies and run the full pytest suite** to validate regression coverage end to end before moving to Phase 2. 【F:README.md†L65-L80】
-- **Ensure sentiment labeling is always included in functional checks** by running `scripts/label_sentence_sentiment.py --input <structured.jsonl> --db ...` after ingestion, so sentiment metrics are available for dashboards. 【F:powershell/functional_checks.ps1†L81-L138】
+- **Run the full pytest suite** after installing dependencies to validate regression coverage end to end. 【F:README.md†L65-L80】
+- **Ensure sentiment labeling is always included in functional checks** by running `scripts/label_sentence_sentiment.py --db ...` after ingestion, so sentiment metrics are available for dashboards. 【F:powershell/functional_checks.ps1†L81-L128】
 - **Refresh Phase 1 status documentation** when new capabilities land to keep MVP readiness current. 【F:phase1-status.md†L1-L14】
 
 ## Overall readout

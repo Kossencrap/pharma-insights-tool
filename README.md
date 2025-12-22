@@ -167,6 +167,12 @@ annotate it with deterministic sentiment labels:
 python scripts/label_sentence_sentiment.py --input data/processed/example_sentences.jsonl
 ```
 
+To persist sentiment labels back into SQLite, include `--db`:
+
+```bash
+python scripts/label_sentence_sentiment.py --input data/processed/example_sentences.jsonl --db data/europepmc.sqlite
+```
+
 The script writes a sibling JSONL with added `sentiment_label`, `sentiment_score`,
 `sentiment_model`, and `sentiment_inference_ts` fields while keeping identifiers such as
 `doc_id`, `sentence_id`, `date`, and `product_mentions` intact.

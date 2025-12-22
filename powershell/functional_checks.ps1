@@ -85,6 +85,20 @@ function Run-LabelSentenceEvents {
     )
 }
 
+function Run-LabelSentenceSentiment {
+    if ($SkipNetworkSteps) {
+        Write-Host "Skipping sentence-sentiment labeling (SkipNetworkSteps set)." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Heading "Labeling sentence sentiment"
+    $dbPath = Join-Path $DataRoot "europepmc.sqlite"
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        'scripts/label_sentence_sentiment.py',
+        '--db', $dbPath
+    )
+}
+
 function Run-AggregateMetrics {
     if ($SkipNetworkSteps) {
         Write-Host "Skipping metric aggregation (SkipNetworkSteps set)." -ForegroundColor Yellow
@@ -204,6 +218,7 @@ Write-Host "Max records per ingestion: $MaxRecords" -ForegroundColor DarkGray
 Run-Pytests
 Run-Ingestion
 Run-LabelSentenceEvents
+Run-LabelSentenceSentiment
 Run-AggregateMetrics
 Run-SentimentMetrics
 Run-ExportBatch

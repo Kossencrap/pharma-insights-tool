@@ -13,6 +13,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$ProductConfigPath = Join-Path $RepoRoot "config/products.json"
+$StudyWeightConfigPath = Join-Path $RepoRoot "config/study_type_weights.json"
+
 function Write-Heading {
     param([string]$Message)
     Write-Host "`n=== $Message ===" -ForegroundColor Cyan
@@ -37,6 +41,46 @@ function Ensure-Directory {
     if (-not (Test-Path -Path $Path)) {
         Write-Host "Creating directory: $Path" -ForegroundColor Yellow
         New-Item -ItemType Directory -Path $Path | Out-Null
+    }
+}
+
+function Show-ConfigSummary {
+    param(
+        [string[]]$ProductsToCheck,
+        [string]$ProductConfig,
+        [string]$WeightConfig
+    )
+
+    Write-Heading "Config snapshot"
+
+    if (Test-Path $ProductConfig) {
+        Write-Host ("Product config: {0}" -f $ProductConfig) -ForegroundColor DarkGray
+        $productConfigJson = Get-Content -Raw $ProductConfig | ConvertFrom-Json
+        $productLookup = @{}
+        foreach ($entry in $productConfigJson.PSObject.Properties) {
+            $productLookup[$entry.Name.ToLower()] = $entry.Value
+        }
+        foreach ($product in $ProductsToCheck) {
+            $key = $product.ToLower()
+            if ($productLookup.ContainsKey($key)) {
+                $aliases = $productLookup[$key] -join ", "
+                Write-Host ("  {0}: {1}" -f $product, $aliases)
+            } else {
+                Write-Host ("  {0}: NOT FOUND in product config" -f $product) -ForegroundColor Yellow
+            }
+        }
+    } else {
+        Write-Host ("Product config not found at {0}" -f $ProductConfig) -ForegroundColor Yellow
+    }
+
+    if (Test-Path $WeightConfig) {
+        Write-Host ("Study weight config: {0}" -f $WeightConfig) -ForegroundColor DarkGray
+        $weightJson = Get-Content -Raw $WeightConfig | ConvertFrom-Json
+        $weightKeys = $weightJson.PSObject.Properties.Name | Sort-Object
+        Write-Host ("  Weight entries: {0}" -f $weightKeys.Count)
+        Write-Host ("  Keys: {0}" -f ($weightKeys -join ", "))
+    } else {
+        Write-Host ("Study weight config not found at {0}" -f $WeightConfig) -ForegroundColor Yellow
     }
 }
 
@@ -226,6 +270,8 @@ Write-Host "Data root: $DataRoot" -ForegroundColor DarkGray
 Write-Host "Products: $($Products -join ', ')" -ForegroundColor DarkGray
 Write-Host "Max records per ingestion: $MaxRecords" -ForegroundColor DarkGray
 
+Show-ConfigSummary -ProductsToCheck $Products -ProductConfig $ProductConfigPath -WeightConfig $StudyWeightConfigPath
+
 Run-Pytests
 Run-Ingestion
 Run-LabelSentenceEvents
@@ -236,5 +282,31 @@ Run-ExportBatch
 Run-Queries
 Run-StreamlitViewer
 Run-MetricsDashboard
+
+Write-Heading "Phase 1 ops checklist (run summary)"
+$dbPath = Join-Path $DataRoot "europepmc.sqlite"
+$metricsDir = Join-Path $DataRoot "metrics"
+$exportRoot = Join-Path $DataRoot "exports"
+Write-Host ("Products: {0}" -f ($Products -join ", "))
+Write-Host ("Product config: {0}" -f $ProductConfigPath)
+Write-Host ("Study weight config: {0}" -f $StudyWeightConfigPath)
+Write-Host ("SQLite DB: {0}" -f $dbPath)
+if ($script:StructuredJsonl) {
+    Write-Host ("Structured JSONL: {0}" -f $script:StructuredJsonl)
+}
+Write-Host ("Metrics dir: {0}" -f $metricsDir)
+Write-Host ("Export root: {0}" -f $exportRoot)
+Write-Host "Key scripts run:"
+Write-Host "  - scripts/ingest_europe_pmc.py"
+Write-Host "  - scripts/label_sentence_events.py"
+Write-Host "  - scripts/label_sentence_sentiment.py"
+Write-Host "  - scripts/aggregate_metrics.py"
+Write-Host "  - scripts/export_sentiment_metrics.py"
+Write-Host "  - scripts/export_batch.py"
+Write-Host "  - scripts/query_comentions.py"
+Write-Host "  - scripts/show_sentence_evidence.py"
+Write-Host "Streamlit dashboards (optional):"
+Write-Host "  - scripts/view_labeled_sentences.py"
+Write-Host "  - scripts/metrics_dashboard.py"
 
 Write-Heading "All checks completed"

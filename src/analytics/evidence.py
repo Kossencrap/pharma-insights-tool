@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from typing import List, Optional, Sequence
+from typing import List, Mapping, Optional, Sequence
+
+from src.analytics.weights import STUDY_TYPE_ALIASES
 
 
 def _split_labels(value: Optional[str]) -> List[str]:
@@ -39,8 +41,30 @@ class SentenceEvidence:
         base_weight = self.combined_weight or self.recency_weight or 1.0
         return base_weight * max(self.count, 1)
 
-    def to_dict(self) -> dict:
+    def confidence_breakdown(
+        self, study_weight_lookup: Mapping[str, float] | None = None
+    ) -> dict:
+        resolved_study_weight = self.study_type_weight or resolve_study_weight(
+            self.study_type, study_weight_lookup
+        )
+        base_weight = self.recency_weight or 1.0
+        combined_weight = self.combined_weight or base_weight * (resolved_study_weight or 1.0)
         return {
+            "recency_weight": self.recency_weight,
+            "study_type": self.study_type,
+            "study_type_weight": resolved_study_weight,
+            "mention_count": max(self.count, 1),
+            "combined_weight": combined_weight,
+            "final_confidence": combined_weight * max(self.count, 1),
+        }
+
+    def to_dict(
+        self,
+        *,
+        study_weight_lookup: Mapping[str, float] | None = None,
+        include_confidence: bool = False,
+    ) -> dict:
+        payload = {
             "doc_id": self.doc_id,
             "sentence_id": self.sentence_id,
             "product_a": self.product_a,
@@ -63,6 +87,13 @@ class SentenceEvidence:
             "sentiment_model": self.sentiment_model,
             "sentiment_inference_ts": self.sentiment_inference_ts,
         }
+
+        if include_confidence:
+            payload["confidence_breakdown"] = self.confidence_breakdown(
+                study_weight_lookup
+            )
+
+        return payload
 
 
 def fetch_sentence_evidence(
@@ -187,5 +218,31 @@ def fetch_sentence_evidence(
 
 def serialize_sentence_evidence(
     evidence_rows: Sequence[SentenceEvidence],
+    *,
+    study_weight_lookup: Mapping[str, float] | None = None,
+    include_confidence: bool = False,
 ) -> List[dict]:
-    return [row.to_dict() for row in evidence_rows]
+    return [
+        row.to_dict(
+            study_weight_lookup=study_weight_lookup, include_confidence=include_confidence
+        )
+        for row in evidence_rows
+    ]
+
+
+def resolve_study_weight(
+    study_type: str | None, study_weight_lookup: Mapping[str, float] | None
+) -> float | None:
+    if not study_weight_lookup:
+        return None
+    if not study_type:
+        return study_weight_lookup.get("other")
+    normalized = study_type.strip().lower()
+    canonical = STUDY_TYPE_ALIASES.get(normalized, normalized)
+    return study_weight_lookup.get(canonical, study_weight_lookup.get("other"))
+
+
+def explain_confidence(
+    evidence: SentenceEvidence, study_weight_lookup: Mapping[str, float] | None = None
+) -> dict:
+    return evidence.confidence_breakdown(study_weight_lookup)

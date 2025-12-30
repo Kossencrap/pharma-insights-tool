@@ -1,4 +1,5 @@
 import sqlite3
+import sqlite3
 from pathlib import Path
 
 from src.analytics.evidence import fetch_sentence_evidence, serialize_sentence_evidence
@@ -43,6 +44,16 @@ def _seed(db_path: Path) -> sqlite3.Connection:
         ("doc-old", "s-old", "ProductA", "ProductB", 1),
     )
 
+    con.executemany(
+        "INSERT INTO product_mentions (mention_id, doc_id, sentence_id, product_canonical, alias_matched, start_char, end_char, match_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            ("m1", "doc-new", "s-new", "ProductA", "ProdA", 0, 6, "regex"),
+            ("m2", "doc-new", "s-new", "ProductB", "ProdB", 22, 29, "regex"),
+            ("m3", "doc-old", "s-old", "ProductA", "Product A", 0, 9, "regex"),
+            ("m4", "doc-old", "s-old", "ProductB", "Product B", 15, 24, "regex"),
+        ],
+    )
+
     con.execute(
         "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
@@ -83,6 +94,8 @@ def test_fetch_sentence_evidence_orders_and_filters(tmp_path: Path) -> None:
     assert [row.doc_id for row in rows] == ["doc-new", "doc-old"]  # ordered by publication_date desc
     assert rows[0].evidence_weight == 4.0  # combined_weight 2.0 * count 2
     assert "superior" in rows[0].labels and "improves" in rows[0].labels
+    assert rows[0].product_a_alias == "ProdA"
+    assert rows[0].product_b_alias == "ProdB"
 
     filtered = fetch_sentence_evidence(con, product_a="ProductA", pub_after="2023-12-31")
     assert len(filtered) == 1
@@ -98,6 +111,8 @@ def test_serialize_sentence_evidence_includes_computed_fields(tmp_path: Path) ->
 
     assert serialized[0]["evidence_weight"] == rows[0].evidence_weight
     assert serialized[0]["matched_terms"] == "ProductA vs ProductB"
+    assert serialized[0]["product_a_alias"] == "ProdA"
+    assert serialized[0]["product_b_alias"] == "ProdB"
     assert serialized[0]["labels"]  # should include combined labels from all sources
     assert serialized[0]["publication_date"] == "2024-02-01"
     assert serialized[1]["publication_date"] == "2023-12-15"

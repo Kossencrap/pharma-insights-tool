@@ -1,0 +1,10 @@
+{
+  "run_id": "example_run_2022q1",
+  "from_date": "2022-01-01",
+  "products": ["metformin", "insulin", "semaglutide", "liraglutide"],
+  "artifacts": {
+    "co_mentions": "data/examples/example_top_comentions.csv",
+    "evidence": "data/examples/example_evidence.jsonl"
+  },
+  "notes": "Snapshot for regression and demo; generated with scripts/run_phase1_pipeline.py using canonical pairs."
+}

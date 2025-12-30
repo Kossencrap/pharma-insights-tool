@@ -7,7 +7,8 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable, Optional
 
-from src.analytics import fetch_sentence_evidence
+from src.analytics import explain_confidence, fetch_sentence_evidence
+from src.analytics.weights import load_study_type_weights
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
 DEFAULT_METRICS_DIR = Path("data/processed/metrics")
@@ -23,13 +24,13 @@ def _read_metrics(path: Path):
         return None
 
     if pd is None:
-        if path.suffix == ".parquet":
-            raise RuntimeError(
-                "pandas is required to read parquet metrics. "
-                "Install pandas or export JSON metrics instead."
-            )
         with path.open("r", encoding="utf-8") as f:
-            rows = json.load(f)
+            try:
+                rows = json.load(f)
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(
+                    "pandas is required to read parquet metrics; re-export metrics as JSON to continue."
+                ) from exc
         return rows
 
     if path.suffix == ".parquet":
@@ -108,6 +109,7 @@ def _render_evidence(
     product_b: Optional[str],
     header: str,
     limit: int = 50,
+    study_weight_lookup: Optional[dict] = None,
 ) -> None:
     with st.expander(header):
         if st.button("Load evidence", key=f"evidence-{header}"):
@@ -126,7 +128,7 @@ def _render_evidence(
                 return
             st.caption(f"Showing {len(evidence)} sentences")
             for row in evidence:
-                record = row.to_dict()
+                record = row.to_dict(include_confidence=bool(study_weight_lookup))
                 with st.container():
                     st.markdown(
                         f"**{record['doc_id']}** | {record['product_a']} vs {record['product_b']}"
@@ -141,6 +143,24 @@ def _render_evidence(
                     meta_cols[3].metric(
                         "Confidence", f"{record.get('evidence_weight', 1.0):.2f}"
                     )
+                    aliases = []
+                    if record.get("product_a_alias"):
+                        aliases.append(
+                            f"{record['product_a_alias']} → {record['product_a']}"
+                        )
+                    if record.get("product_b_alias"):
+                        aliases.append(
+                            f"{record['product_b_alias']} → {record['product_b']}"
+                        )
+                    if aliases:
+                        st.caption("Aliases matched: " + ", ".join(aliases))
+                    if record.get("matched_terms"):
+                        st.caption(f"Matched terms: {record['matched_terms']}")
+                    if study_weight_lookup:
+                        st.json(
+                            explain_confidence(row, study_weight_lookup),
+                            expanded=False,
+                        )
 
 
 def _render_chart(st, frame, title: str, *, group: Optional[str] = None, value: str = "count"):
@@ -216,8 +236,17 @@ def main() -> None:
 
     metrics_dir = Path(st.sidebar.text_input("Metrics directory", str(DEFAULT_METRICS_DIR)))
     db_path = Path(st.sidebar.text_input("SQLite DB path", str(DEFAULT_DB)))
+    weight_path = Path(
+        st.sidebar.text_input("Study weight config", "config/study_type_weights.json")
+    )
     freq_label = st.sidebar.selectbox("Time frequency", ["Weekly", "Monthly"])
     freq = "w" if freq_label == "Weekly" else "m"
+
+    study_weight_lookup: dict | None = None
+    if weight_path.exists():
+        study_weight_lookup = load_study_type_weights(weight_path)
+    else:
+        st.sidebar.warning("Study weight config not found; confidence shown without weights.")
 
     try:
         documents_frame = _ensure_datetime(
@@ -235,6 +264,12 @@ def main() -> None:
     except RuntimeError as exc:
         st.error(str(exc))
         return
+
+    st.info(
+        "This dashboard is the primary Phase 1 artifact. Co-mentions represent sentences "
+        "where two products co-occur; confidence combines recency, study-type weights, and "
+        "repeat mentions. Sentiment is lexicon-based and heuristic."
+    )
 
     products = _load_products(mentions_frame)
     selected_product = st.sidebar.selectbox(
@@ -259,6 +294,7 @@ def main() -> None:
         product_a=product_filter,
         product_b=partner_filter,
         header="Evidence for publication volume",
+        study_weight_lookup=study_weight_lookup,
     )
 
     st.subheader("Product mentions trend")
@@ -286,6 +322,7 @@ def main() -> None:
         product_a=product_filter,
         product_b=None,
         header="Evidence for product mentions",
+        study_weight_lookup=study_weight_lookup,
     )
 
     st.subheader("Co-mentions trend")
@@ -312,6 +349,7 @@ def main() -> None:
         product_a=product_filter,
         product_b=partner_filter,
         header="Evidence for co-mentions",
+        study_weight_lookup=study_weight_lookup,
     )
 
     st.subheader("Sentiment ratios")
@@ -339,6 +377,7 @@ def main() -> None:
         product_a=product_filter,
         product_b=partner_filter,
         header="Evidence for sentiment ratios",
+        study_weight_lookup=study_weight_lookup,
     )
 
 

@@ -29,12 +29,14 @@ except ImportError:  # pragma: no cover - handled in code paths
 
 from scripts import aggregate_metrics as aggregator
 from src.analytics import fetch_sentence_evidence, serialize_sentence_evidence
+from src.analytics.weights import load_study_type_weights
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
 DEFAULT_EXPORT_ROOT = Path("data/exports")
 DEFAULT_RAW_RETENTION_DAYS = 30
 DEFAULT_INGEST_RETENTION_DAYS = 14
 DEFAULT_EVIDENCE_LIMIT = 500
+DEFAULT_STUDY_WEIGHT_CONFIG = ROOT / "config" / "study_type_weights.json"
 
 RAW_TABLES = [
     "documents",
@@ -80,6 +82,21 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=DEFAULT_EVIDENCE_LIMIT,
         help="Maximum number of sentence-level evidence rows to export (default: 500)",
+    )
+    parser.add_argument(
+        "--study-weight-config",
+        type=Path,
+        default=DEFAULT_STUDY_WEIGHT_CONFIG,
+        help="Path to study-type weight configuration for confidence breakdowns.",
+    )
+    parser.add_argument(
+        "--run-slug",
+        help="Optional run identifier to make manifests deterministic across runs.",
+    )
+    parser.add_argument(
+        "--manifest-path",
+        type=Path,
+        help="Optional explicit manifest path (defaults to <export-root>/runs/<slug>/manifest.json).",
     )
     return parser.parse_args()
 
@@ -174,11 +191,20 @@ def _export_aggregates(
 
 
 def _export_evidence(
-    con: sqlite3.Connection, outdir: Path, *, run_slug: str, limit: int
+    con: sqlite3.Connection,
+    outdir: Path,
+    *,
+    run_slug: str,
+    limit: int,
+    study_weight_lookup: Dict[str, float] | None,
 ) -> dict:
     outdir.mkdir(parents=True, exist_ok=True)
     evidence_rows = fetch_sentence_evidence(con, limit=limit)
-    serialized = serialize_sentence_evidence(evidence_rows)
+    serialized = serialize_sentence_evidence(
+        evidence_rows,
+        study_weight_lookup=study_weight_lookup,
+        include_confidence=True,
+    )
 
     base_name = f"sentence_evidence_{run_slug}"
     csv_path = outdir / f"{base_name}.csv"
@@ -272,16 +298,19 @@ def run_export(
     ingest_retention_days: int = DEFAULT_INGEST_RETENTION_DAYS,
     raw_ingest_dir: Path = Path("data/raw"),
     now: datetime | None = None,
+    run_slug: str | None = None,
+    manifest_path: Path | None = None,
     evidence_limit: int = DEFAULT_EVIDENCE_LIMIT,
+    study_weight_lookup: Dict[str, float] | None = None,
 ) -> dict:
     run_ts = now or datetime.now(timezone.utc)
-    run_slug = run_ts.strftime("run_%Y%m%d")
+    resolved_slug = run_slug or run_ts.strftime("run_%Y%m%d")
 
     if not db_path.exists():
         raise SystemExit(f"SQLite database not found at {db_path}. Run ingestion first.")
 
-    run_dir = export_root / "runs" / run_slug
-    aggregates_dir = export_root / "aggregates" / run_slug
+    run_dir = export_root / "runs" / resolved_slug
+    aggregates_dir = export_root / "aggregates" / resolved_slug
     evidence_dir = run_dir / "evidence"
     raw_export_dir = run_dir / "raw"
 
@@ -292,9 +321,13 @@ def run_export(
     con.row_factory = sqlite3.Row
 
     aggregates = _aggregate_frames(con, freqs)
-    aggregate_exports = _export_aggregates(aggregates, aggregates_dir, run_slug)
+    aggregate_exports = _export_aggregates(aggregates, aggregates_dir, resolved_slug)
     evidence_exports = _export_evidence(
-        con, evidence_dir, run_slug=run_slug, limit=evidence_limit
+        con,
+        evidence_dir,
+        run_slug=resolved_slug,
+        limit=evidence_limit,
+        study_weight_lookup=study_weight_lookup,
     )
 
     raw_exports: Dict[str, dict] = {}
@@ -305,7 +338,7 @@ def run_export(
 
     consistency = _validate_consistency(con, aggregates)
     manifest = {
-        "run_id": run_slug,
+        "run_id": resolved_slug,
         "run_at": run_ts.isoformat(),
         "db_path": str(db_path),
         "export_root": str(export_root),
@@ -315,10 +348,11 @@ def run_export(
         "consistency": consistency,
     }
 
-    manifest_path = run_dir / "manifest.json"
-    with manifest_path.open("w", encoding="utf-8") as f:
+    manifest_target = manifest_path or (run_dir / "manifest.json")
+    with manifest_target.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
-    print(f"Wrote manifest to {manifest_path}")
+    print(f"Wrote manifest to {manifest_target}")
+    manifest["manifest_path"] = str(manifest_target)
 
     _prune_retention(run_dir.parent, raw_retention_days)
     _prune_retention(raw_ingest_dir, ingest_retention_days)
@@ -328,13 +362,19 @@ def run_export(
 
 def main() -> None:
     args = parse_args()
+    study_weight_lookup: Dict[str, float] | None = None
+    if args.study_weight_config and args.study_weight_config.exists():
+        study_weight_lookup = load_study_type_weights(args.study_weight_config)
     run_export(
         db_path=args.db,
         export_root=args.export_root,
         freqs=args.freq,
         raw_retention_days=args.raw_retention_days,
         ingest_retention_days=args.ingest_retention_days,
+        run_slug=args.run_slug,
+        manifest_path=args.manifest_path,
         evidence_limit=args.evidence_limit,
+        study_weight_lookup=study_weight_lookup,
     )
 
 

@@ -140,6 +140,25 @@ python -m pytest
 For a scripted end-to-end validation (including pytest and sentiment labeling), see
 `powershell/functional_checks.ps1`.
 
+## One-command Phase 1 pipeline
+Run the canonical Phase 1 flow (ingestion → labeling → exports) with a single command (see `docs/phase1.md` for acceptance criteria):
+
+```bash
+python scripts/run_phase1_pipeline.py \
+  --products config/products.json \
+  --from-date 2022-01-01 \
+  --max-records 250 \
+  --db data/europepmc.sqlite \
+  --manifest-path data/artifacts/phase1/phase1_run_manifest.json
+```
+
+Artifacts (metrics, evidence exports, manifest) are written to `data/artifacts/phase1` by default. The manifest includes input flags, guardrail limits, and pointers to export folders for verification.
+
+Guardrails:
+- `--max-sentences-per-doc` (default 400) skips sentences beyond the cap per document
+- `--max-co-mentions-per-sentence` (default 50) drops excessive co-mention pairs per sentence
+- `--db-size-warn-mb` (default 250) emits warnings when SQLite grows too large
+
 ## Running ingestion locally
 Use the CLI runner to pull a small batch of Europe PMC results and emit both raw and structured outputs:
 
@@ -203,6 +222,8 @@ sentiment ratios with evidence drill-downs:
 streamlit run scripts/metrics_dashboard.py
 ```
 
+The dashboard is the primary Phase 1 artifact. It tolerates missing pandas/altair by falling back to basic charts and exposes alias provenance plus confidence breakdowns for each evidence sentence.
+
 ### Proxy troubleshooting
 If your environment blocks outbound traffic via a corporate proxy, you can disable proxy usage or provide explicit proxy URLs:
 
@@ -213,6 +234,14 @@ python scripts/ingest_europe_pmc.py -p "aspirin" --no-proxy
 # Override proxies explicitly (repeat --proxy for each scheme)
 python scripts/ingest_europe_pmc.py -p "aspirin" --proxy "https=https://proxy.example:8080" --proxy "http=http://proxy.example:8080"
 ```
+
+## Phase 1 known limitations
+- No causal inference; outputs are descriptive only.
+- No directionality detection ("A causes B" vs. "A compared to B").
+- No dosage or population stratification.
+- No cross-sentence inference; all analytics stay within a single sentence.
+- Sentiment is lexicon/rule based and does not capture nuanced clinical outcomes.
+- Product matching is alias-based with boundary enforcement; extremely short aliases are skipped to avoid false positives.
 
 ## Non-goals (for now)
 - Gene or pathway extraction

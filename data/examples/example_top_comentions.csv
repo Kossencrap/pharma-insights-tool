@@ -1,0 +1,4 @@
+product_a,product_b,total_count,mean_confidence
+metformin,insulin,18,1.42
+semaglutide,liraglutide,12,1.31
+metformin,semaglutide,7,1.12

@@ -166,6 +166,24 @@ def parse_args() -> argparse.Namespace:
         default=STUDY_WEIGHT_CONFIG,
         help="Path to study type weight mapping (JSON).",
     )
+    parser.add_argument(
+        "--max-sentences-per-doc",
+        type=int,
+        default=400,
+        help="Soft cap on sentences stored per document (default: 400)",
+    )
+    parser.add_argument(
+        "--max-co-mentions-per-sentence",
+        type=int,
+        default=50,
+        help="Soft cap on co-mention pairs recorded per sentence (default: 50)",
+    )
+    parser.add_argument(
+        "--db-size-warn-mb",
+        type=int,
+        default=250,
+        help="Emit a warning if the SQLite DB exceeds this size after ingestion.",
+    )
     return parser.parse_args()
 
 
@@ -357,10 +375,10 @@ def run_ingestion(
 
     documents = []
     with structured_path.open("w", encoding="utf-8") as f:
-        for record in normalized_results:
-            doc = splitter.split_document(record)
-            documents.append(doc)
-            f.write(json.dumps(doc.to_dict()) + "\n")
+    for record in normalized_results:
+        doc = splitter.split_document(record)
+        documents.append(doc)
+        f.write(json.dumps(doc.to_dict()) + "\n")
 
             if conn:
                 upsert_document(conn, doc, raw_json=record.raw)
@@ -376,7 +394,20 @@ def run_ingestion(
                 mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []
                 sentence_co_mentions: list[tuple[str, str, str, int]] = []
                 doc_mentions: list[ProductMention] = []
-                for sentence in doc.iter_sentences():
+                max_sentences = getattr(args, "max_sentences_per_doc", 0) or 0
+                max_pairs = getattr(args, "max_co_mentions_per_sentence", 0) or 0
+                warned_sentence_cap = False
+                warned_pair_cap = False
+
+                for idx, sentence in enumerate(doc.iter_sentences()):
+                    if max_sentences and idx >= max_sentences:
+                        if not warned_sentence_cap:
+                            print(
+                                f"Reached --max-sentences-per-doc={max_sentences} for {doc.doc_id}; skipping remaining sentences.",
+                                file=sys.stderr,
+                            )
+                            warned_sentence_cap = True
+                        break
                     sentence_id = build_sentence_id(doc.doc_id, sentence.section, sentence.index)
                     sentence_rows.append((sentence_id, sentence))
 
@@ -385,9 +416,15 @@ def run_ingestion(
                         if mentions:
                             doc_mentions.extend(mentions)
                             sentence_pairs = co_mentions_from_sentence(mentions)
-                            sentence_co_mentions.extend(
-                                (sentence_id, a, b, count) for a, b, count in sentence_pairs
-                            )
+                            if max_pairs and len(sentence_pairs) > max_pairs:
+                                sentence_pairs = sentence_pairs[:max_pairs]
+                                if not warned_pair_cap:
+                                    print(
+                                        f"Capped co-mentions at {max_pairs} per sentence for {doc.doc_id}; extra pairs dropped.",
+                                        file=sys.stderr,
+                                    )
+                                    warned_pair_cap = True
+                            sentence_co_mentions.extend((sentence_id, a, b, count) for a, b, count in sentence_pairs)
                             mention_rows = [
                                 (
                                     f"{sentence_id}:{m.product_canonical}:{m.start_char}-{m.end_char}",
@@ -465,6 +502,15 @@ def run_ingestion(
         conn.commit()
         conn.close()
         print(f"Persisted documents and mentions to SQLite at {db_path}")
+
+        warn_mb = getattr(args, "db_size_warn_mb", 0) or 0
+        if warn_mb:
+            size_mb = db_path.stat().st_size / (1024 * 1024)
+            if size_mb > warn_mb:
+                print(
+                    f"Warning: SQLite DB at {db_path} is {size_mb:.1f} MB (exceeds --db-size-warn-mb={warn_mb}).",
+                    file=sys.stderr,
+                )
 
 
 def main() -> None:

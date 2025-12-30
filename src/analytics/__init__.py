@@ -7,7 +7,9 @@ from typing import Dict, List
 from src.structuring.models import Document, Sentence
 from .evidence import (
     SentenceEvidence,
+    explain_confidence,
     fetch_sentence_evidence,
+    resolve_study_weight,
     serialize_sentence_evidence,
 )
 from .mention_extractor import (
@@ -57,6 +59,7 @@ __all__ = [
     "load_product_config",
     "mean_sentence_length",
     "SentenceEvidence",
+    "explain_confidence",
     "DocumentWeight",
     "compute_document_weight",
     "compute_recency_weight",
@@ -75,4 +78,5 @@ __all__ = [
     "SentimentResult",
     "classify_batch",
     "classify_sentence",
+    "resolve_study_weight",
 ]

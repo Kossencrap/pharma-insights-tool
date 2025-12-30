@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence
@@ -27,11 +28,31 @@ def load_product_config(path: Path | str) -> Dict[str, List[str]]:
         raise ValueError(f"Product config at {path} must be valid JSON") from None
 
     normalized: Dict[str, List[str]] = {}
+    seen_aliases: dict[str, str] = {}
     for canonical, aliases in data.items():
         alias_list = list(aliases)
         if canonical not in alias_list:
             alias_list.append(canonical)
-        normalized[canonical] = alias_list
+        pruned_aliases: list[str] = []
+        for alias in alias_list:
+            cleaned = alias.strip()
+            if len(cleaned) < 3:
+                warnings.warn(
+                    f"Skipping alias '{alias}' for canonical '{canonical}' because it is too short to match reliably.",
+                    RuntimeWarning,
+                )
+                continue
+            key = cleaned.lower()
+            other = seen_aliases.get(key)
+            if other and other != canonical:
+                warnings.warn(
+                    f"Alias '{alias}' appears for both '{other}' and '{canonical}'. Matching will favor first occurrence.",
+                    RuntimeWarning,
+                )
+            else:
+                seen_aliases[key] = canonical
+            pruned_aliases.append(cleaned)
+        normalized[canonical] = pruned_aliases
     return normalized
 
 

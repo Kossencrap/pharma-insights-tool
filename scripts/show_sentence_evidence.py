@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sqlite3
 from pathlib import Path
 
-from src.analytics import fetch_sentence_evidence
-from src.analytics.weights import STUDY_TYPE_ALIASES, load_study_type_weights
+from src.analytics import explain_confidence, fetch_sentence_evidence
+from src.analytics.weights import load_study_type_weights
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
 
@@ -64,13 +63,6 @@ def main() -> None:
         print("No evidence sentences found for the given filters.")
         return
 
-    def _resolve_weight(study_type: str | None) -> float | None:
-        if not study_type:
-            return study_weight_lookup.get("other")
-        normalized = study_type.strip().lower()
-        canonical = STUDY_TYPE_ALIASES.get(normalized, normalized)
-        return study_weight_lookup.get(canonical, study_weight_lookup.get("other"))
-
     for evidence in evidence_rows:
         header = f"{evidence.doc_id} | {evidence.product_a} vs {evidence.product_b}"
         if evidence.publication_date:
@@ -82,21 +74,13 @@ def main() -> None:
         print(evidence.sentence_text.strip())
         if evidence.labels:
             print(f"Labels: {', '.join(evidence.labels)}")
-        study_weight = evidence.study_type_weight or _resolve_weight(evidence.study_type)
-        base_weight = evidence.recency_weight or 1.0
-        combined_weight = evidence.combined_weight or (
-            base_weight * (study_weight or 1.0)
+        weight_msg = explain_confidence(
+            evidence,
+            {k: float(v) for k, v in study_weight_lookup.items()},
         )
-        confidence = combined_weight * max(evidence.count, 1)
-        weight_msg = {
-            "recency_weight": evidence.recency_weight,
-            "study_type": evidence.study_type,
-            "study_type_weight": study_weight,
-            "combined_weight": combined_weight,
-            "count": evidence.count,
-            "confidence": confidence,
-        }
-        print(f"Weights: {json.dumps(weight_msg, default=float)}")
+        print("Weights:")
+        for key, value in weight_msg.items():
+            print(f"  - {key}: {value}")
         print()
 
 

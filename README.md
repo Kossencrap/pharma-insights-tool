@@ -140,6 +140,19 @@ python -m pytest
 For a scripted end-to-end validation (including pytest and sentiment labeling), see
 `powershell/functional_checks.ps1`.
 
+## One-command Phase 1 pipeline
+Run the canonical Phase 1 flow (ingestion → labeling → exports) with a single command:
+
+```bash
+python scripts/run_phase1_pipeline.py \
+  --products config/products.json \
+  --from-date 2022-01-01 \
+  --max-records 250 \
+  --db data/europepmc.sqlite
+```
+
+Artifacts (metrics, evidence exports, manifest) are written to `data/artifacts/phase1` by default.
+
 ## Running ingestion locally
 Use the CLI runner to pull a small batch of Europe PMC results and emit both raw and structured outputs:
 
@@ -213,6 +226,14 @@ python scripts/ingest_europe_pmc.py -p "aspirin" --no-proxy
 # Override proxies explicitly (repeat --proxy for each scheme)
 python scripts/ingest_europe_pmc.py -p "aspirin" --proxy "https=https://proxy.example:8080" --proxy "http=http://proxy.example:8080"
 ```
+
+## Phase 1 known limitations
+- No causal inference; outputs are descriptive only.
+- No directionality detection ("A causes B" vs. "A compared to B").
+- No dosage or population stratification.
+- No cross-sentence inference; all analytics stay within a single sentence.
+- Sentiment is lexicon/rule based and does not capture nuanced clinical outcomes.
+- Product matching is alias-based with boundary enforcement; extremely short aliases are skipped to avoid false positives.
 
 ## Non-goals (for now)
 - Gene or pathway extraction

@@ -159,7 +159,21 @@ ________________________________________
 •	No treatment advice
 •	Clear disclaimers
 ________________________________________
-11. MVP Definition (Strict)
+11. Phase 2 Narrative Structure & Change Attribution (definition)
+Summary lives in docs/phase2-narrative.md and will guide backlog epics.
+Purpose:
+•	Organize Phase 1 signals into explicit narratives with sentence-level evidence
+•	Track content changes over time with deterministic, auditable logic
+Scope highlights:
+•	Narrative typing, change attribution, competitive narrative context, reviewer-grade evidence views
+Guardrails:
+•	No generative summaries, causal claims, or black-box NLP; evidence must remain citable
+Next actions:
+•	Add Phase 2 epics/spikes (narrative labels, BERT checkpoints, UI narrative cards)
+•	Extend functional checks/pipeline to cover narrative labeling + change attribution
+•	Define KPIs for narrative precision and minimum deltas for “significant shift”
+________________________________________
+12. MVP Definition (Strict)
 MVP is complete if:
 1.	One real drug can be selected
 2.	Europe PMC data is ingested
@@ -168,7 +182,7 @@ MVP is complete if:
 5.	All insights link back to source text
 Anything beyond this is Phase 2.
 ________________________________________
-12. How to Use This with Codex (Practical Guidance)
+13. How to Use This with Codex (Practical Guidance)
 When working with Codex:
 •	Always reference which section you are implementing
 •	Ask Codex for:
@@ -182,7 +196,7 @@ o	Untraceable outputs
 Example Codex prompt
 “Implement Section 5.2: sentiment and comparative language extraction as a batch pipeline with sentence-level outputs and deterministic results.”
 ________________________________________
-13. Go / No-Go Criteria
+14. Go / No-Go Criteria
 Proceed only if:
 •	Insights feel decision-relevant, not descriptive
 •	Users trust outputs without explanation
@@ -192,7 +206,7 @@ Stop if:
 •	Evidence traceability breaks
 •	Models become opaque
 ________________________________________
-14. Final Positioning Statement (Internal)
+15. Final Positioning Statement (Internal)
 “We do not predict outcomes.
 We reveal how the scientific and clinical narrative around products is evolving — with evidence.”
 ________________________________________

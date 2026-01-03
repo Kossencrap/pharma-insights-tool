@@ -158,6 +158,7 @@ def _aggregate_frames(con: sqlite3.Connection, freqs: Sequence[str]) -> Dict[str
         "mentions": {},
         "co_mentions": {},
         "co_mentions_weighted": {},
+        "narratives": {},
     }
     for freq in freqs:
         aggregates["documents"][freq] = aggregator._aggregate_documents(con, freq)
@@ -166,6 +167,7 @@ def _aggregate_frames(con: sqlite3.Connection, freqs: Sequence[str]) -> Dict[str
         aggregates["co_mentions_weighted"][freq] = aggregator._aggregate_weighted_co_mentions(
             con, freq
         )
+        aggregates["narratives"][freq] = aggregator._aggregate_narratives(con, freq)
     return aggregates
 
 

@@ -147,6 +147,37 @@ def _aggregate_weighted_co_mentions(con: sqlite3.Connection, freq: str) -> List[
     )
 
 
+def _aggregate_narratives(con: sqlite3.Connection, freq: str) -> List[dict]:
+    rows = _load_rows(
+        con,
+        """
+        SELECT d.publication_date,
+               se.product_a,
+               se.product_b,
+               se.narrative_type,
+               se.narrative_subtype
+        FROM sentence_events se
+        JOIN documents d ON se.doc_id = d.doc_id
+        WHERE d.publication_date IS NOT NULL
+          AND se.narrative_type IS NOT NULL
+        """,
+    )
+
+    group_columns = [
+        "product_a",
+        "product_b",
+        "narrative_type",
+        "narrative_subtype",
+    ]
+    config = TimeSeriesConfig(
+        timestamp_column="publication_date",
+        freq=freq,
+        group_columns=group_columns,
+    )
+    agg = bucket_counts(config, rows)
+    return add_change_metrics(agg, group_columns=group_columns)
+
+
 def _write_rows(outdir: Path, name: str, frames: Dict[str, List[dict]]) -> None:
     """Write aggregated rows to disk.
 
@@ -185,6 +216,7 @@ def main() -> None:
     mentions: Dict[str, List[dict]] = {}
     co_mentions: Dict[str, List[dict]] = {}
     weighted_co_mentions: Dict[str, List[dict]] = {}
+    narratives: Dict[str, List[dict]] = {}
     validation: dict = {}
 
     for freq in args.freq:
@@ -192,12 +224,14 @@ def main() -> None:
         mentions[freq] = _aggregate_mentions(con, freq)
         co_mentions[freq] = _aggregate_co_mentions(con, freq)
         weighted_co_mentions[freq] = _aggregate_weighted_co_mentions(con, freq)
+        narratives[freq] = _aggregate_narratives(con, freq)
     validation = _validation_metrics(con)
 
     _write_rows(args.outdir, "documents", documents)
     _write_rows(args.outdir, "mentions", mentions)
     _write_rows(args.outdir, "co_mentions", co_mentions)
     _write_rows(args.outdir, "co_mentions_weighted", weighted_co_mentions)
+    _write_rows(args.outdir, "narratives", narratives)
     with (args.outdir / "validation_metrics.json").open("w", encoding="utf-8") as f:
         json.dump(validation, f, indent=2)
     print(f"Wrote validation metrics to {args.outdir / 'validation_metrics.json'}")

@@ -50,7 +50,7 @@ def _seed_cli_db(db_path: Path) -> None:
         ("doc-2", "s-2", "ProductA", "ProductB", 1),
     )
     con.execute(
-        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms, narrative_type, narrative_subtype, narrative_confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             "doc-1",
             "s-1",
@@ -61,10 +61,13 @@ def _seed_cli_db(db_path: Path) -> None:
             "",
             "trial",
             "ProductA vs ProductB",
+            "comparative_positioning",
+            "head_to_head",
+            0.8,
         ),
     )
     con.execute(
-        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms, narrative_type, narrative_subtype, narrative_confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             "doc-2",
             "s-2",
@@ -75,6 +78,9 @@ def _seed_cli_db(db_path: Path) -> None:
             "",
             "observational",
             "pair mention",
+            "study_context",
+            "study_setting",
+            0.6,
         ),
     )
     con.commit()

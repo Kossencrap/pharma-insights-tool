@@ -99,6 +99,9 @@ CREATE_TABLES_SQL = [
         risk_terms TEXT,
         study_context TEXT,
         matched_terms TEXT,
+        narrative_type TEXT,
+        narrative_subtype TEXT,
+        narrative_confidence REAL,
         sentiment_label TEXT,
         sentiment_score REAL,
         sentiment_model TEXT,
@@ -181,6 +184,9 @@ CREATE_VIEWS_SQL = [
         se.risk_terms,
         se.study_context,
         se.matched_terms,
+        se.narrative_type,
+        se.narrative_subtype,
+        se.narrative_confidence,
         se.sentiment_label,
         se.sentiment_score,
         se.sentiment_model,
@@ -294,6 +300,9 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         "risk_terms",
         "study_context",
         "matched_terms",
+        "narrative_type",
+        "narrative_subtype",
+        "narrative_confidence",
         "sentiment_label",
         "sentiment_score",
         "sentiment_model",
@@ -335,6 +344,9 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         ("sentiment_score", "REAL"),
         ("sentiment_model", "TEXT"),
         ("sentiment_inference_ts", "TEXT"),
+        ("narrative_type", "TEXT"),
+        ("narrative_subtype", "TEXT"),
+        ("narrative_confidence", "REAL"),
     ]
     for column, ddl in optional_columns:
         if column not in existing:
@@ -485,6 +497,9 @@ def insert_sentence_events(
             Optional[str],
             Optional[str],
             Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[float],
         ]
     ],
 ) -> None:
@@ -494,8 +509,9 @@ def insert_sentence_events(
         """
         INSERT OR REPLACE INTO sentence_events (
             doc_id, sentence_id, product_a, product_b,
-            comparative_terms, relationship_types, risk_terms, study_context, matched_terms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            comparative_terms, relationship_types, risk_terms, study_context, matched_terms,
+            narrative_type, narrative_subtype, narrative_confidence
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             (
@@ -508,6 +524,9 @@ def insert_sentence_events(
                 risk_terms,
                 study_context,
                 matched_terms,
+                narrative_type,
+                narrative_subtype,
+                narrative_confidence,
             )
             for (
                 doc_id,
@@ -519,6 +538,9 @@ def insert_sentence_events(
                 risk_terms,
                 study_context,
                 matched_terms,
+                narrative_type,
+                narrative_subtype,
+                narrative_confidence,
             ) in events
         ),
     )

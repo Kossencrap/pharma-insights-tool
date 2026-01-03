@@ -50,7 +50,7 @@ def _seed_db(db_path: Path) -> None:
         ("doc-1", "sent-1", "product-a", "product-b", 1),
     )
     con.execute(
-        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms, narrative_type, narrative_subtype, narrative_confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             "doc-1",
             "sent-1",
@@ -61,6 +61,9 @@ def _seed_db(db_path: Path) -> None:
             "risk",
             "trial",
             "drug pair",
+            "safety",
+            "risk_signal",
+            0.7,
         ),
     )
     con.commit()

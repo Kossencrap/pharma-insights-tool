@@ -108,12 +108,14 @@ def test_export_creates_outputs_and_prunes_old_runs(tmp_path: Path) -> None:
     documents_csv = aggregates_dir / f"documents_w_{run_slug}.csv"
     mentions_csv = raw_dir / "product_mentions.csv"
     weighted_comentions_csv = aggregates_dir / f"co_mentions_weighted_w_{run_slug}.csv"
+    narratives_csv = aggregates_dir / f"narratives_w_{run_slug}.csv"
     evidence_csv = evidence_dir / f"sentence_evidence_{run_slug}.csv"
     evidence_jsonl = evidence_dir / f"sentence_evidence_{run_slug}.jsonl"
 
     assert documents_csv.exists()
     assert mentions_csv.exists()
     assert weighted_comentions_csv.exists()
+    assert narratives_csv.exists()
     assert evidence_csv.exists()
     assert evidence_jsonl.exists()
 
@@ -140,6 +142,7 @@ def test_export_creates_outputs_and_prunes_old_runs(tmp_path: Path) -> None:
     assert any(check["consistent"] for check in saved_manifest["consistency"])
     assert saved_manifest.get("evidence_export", {}).get("rows") >= 1
     assert "jsonl" in saved_manifest.get("evidence_export", {})
+    assert saved_manifest.get("aggregate_exports", {}).get("narratives", {})
 
     assert not old_run.exists()
     assert not old_file.exists()

@@ -203,6 +203,41 @@ def _render_chart(st, frame, title: str, *, group: Optional[str] = None, value: 
     st.altair_chart(chart, use_container_width=True)
 
 
+def _narrative_label(row: dict) -> str:
+    narrative_type = row.get("narrative_type") or "(unknown)"
+    subtype = row.get("narrative_subtype")
+    return f"{narrative_type}: {subtype}" if subtype else narrative_type
+
+
+def _latest_narrative_changes(rows: Iterable[dict]) -> list[dict]:
+    latest: dict[tuple, dict] = {}
+    for row in rows:
+        key = (
+            row.get("product_a"),
+            row.get("product_b"),
+            row.get("narrative_type"),
+            row.get("narrative_subtype"),
+        )
+        current = latest.get(key)
+        if current is None or row.get("bucket_start") > current.get("bucket_start"):
+            latest[key] = row
+    summaries = []
+    for key, row in latest.items():
+        summaries.append(
+            {
+                "product_a": key[0],
+                "product_b": key[1],
+                "narrative": _narrative_label(row),
+                "bucket_start": row.get("bucket_start"),
+                "count": row.get("count"),
+                "wow_change": row.get("wow_change"),
+                "z_score": row.get("z_score"),
+            }
+        )
+    summaries.sort(key=lambda r: (r.get("z_score") is None, -(r.get("z_score") or 0)))
+    return summaries
+
+
 def _with_partner_column(frame, product: str):
     if frame is None:
         return frame
@@ -260,6 +295,9 @@ def main() -> None:
         )
         sentiment_frame = _ensure_datetime(
             _read_metrics(metrics_dir / f"sentiment_{freq}.parquet")
+        )
+        narrative_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"narratives_{freq}.parquet")
         )
     except RuntimeError as exc:
         st.error(str(exc))
@@ -379,6 +417,80 @@ def main() -> None:
         header="Evidence for sentiment ratios",
         study_weight_lookup=study_weight_lookup,
     )
+
+    st.subheader("Narrative trends and change flags")
+    narratives_filtered = narrative_frame
+    if product_filter and hasattr(narrative_frame, "loc"):
+        narratives_filtered = narrative_frame.loc[
+            (narrative_frame["product_a"].str.lower() == product_filter.lower())
+            | (narrative_frame["product_b"].str.lower() == product_filter.lower())
+        ]
+    elif product_filter:
+        narratives_filtered = [
+            row
+            for row in narrative_frame or []
+            if str(row.get("product_a", "")).lower() == product_filter.lower()
+            or str(row.get("product_b", "")).lower() == product_filter.lower()
+        ]
+
+    narrative_groups = []
+    if hasattr(narratives_filtered, "assign"):
+        narrative_groups = (
+            narratives_filtered["narrative_type"].fillna("(unknown)").astype(str).unique().tolist()
+        )
+    else:
+        narrative_groups = sorted(
+            {
+                row.get("narrative_type") or "(unknown)"
+                for row in narratives_filtered or []
+                if row.get("narrative_type")
+            }
+        )
+    narrative_filter = st.sidebar.selectbox(
+        "Narrative type", options=["(all)"] + narrative_groups
+    )
+    if narrative_filter != "(all)":
+        if hasattr(narratives_filtered, "loc"):
+            narratives_filtered = narratives_filtered.loc[
+                narratives_filtered["narrative_type"].fillna("(unknown)").str.lower()
+                == narrative_filter.lower()
+            ]
+        else:
+            narratives_filtered = [
+                row
+                for row in narratives_filtered or []
+                if (row.get("narrative_type") or "(unknown)").lower()
+                == narrative_filter.lower()
+            ]
+
+    chart_frame = narratives_filtered
+    if hasattr(narratives_filtered, "assign"):
+        chart_frame = narratives_filtered.assign(
+            narrative_label=lambda df: df.apply(_narrative_label, axis=1)
+        )
+    elif narratives_filtered is not None:
+        chart_frame = [
+            {**row, "narrative_label": _narrative_label(row)} for row in narratives_filtered
+        ]
+    _render_chart(
+        st,
+        chart_frame,
+        "Narrative counts",
+        group="narrative_label",
+    )
+
+    if chart_frame is not None:
+        change_rows = (
+            chart_frame.to_dict("records")
+            if hasattr(chart_frame, "to_dict")
+            else chart_frame
+        )
+        latest = _latest_narrative_changes(change_rows)
+        if latest:
+            st.caption("Most recent change signals (sorted by z-score)")
+            st.dataframe(latest)
+        else:
+            st.info("No narrative change signals available for the selected filters.")
 
 
 if __name__ == "__main__":

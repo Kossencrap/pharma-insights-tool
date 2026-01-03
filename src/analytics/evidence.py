@@ -33,6 +33,9 @@ class SentenceEvidence:
     combined_weight: Optional[float]
     labels: List[str]
     matched_terms: Optional[str]
+    narrative_type: Optional[str]
+    narrative_subtype: Optional[str]
+    narrative_confidence: Optional[float]
     sentiment_label: Optional[str]
     sentiment_score: Optional[float]
     sentiment_model: Optional[str]
@@ -86,6 +89,9 @@ class SentenceEvidence:
             "evidence_weight": self.evidence_weight,
             "labels": self.labels,
             "matched_terms": self.matched_terms,
+            "narrative_type": self.narrative_type,
+            "narrative_subtype": self.narrative_subtype,
+            "narrative_confidence": self.narrative_confidence,
             "sentiment_label": self.sentiment_label,
             "sentiment_score": self.sentiment_score,
             "sentiment_model": self.sentiment_model,
@@ -124,6 +130,13 @@ def fetch_sentence_evidence(
         "se.sentiment_inference_ts"
         if "sentiment_inference_ts" in columns
         else "NULL"
+    )
+    narrative_type_expr = "se.narrative_type" if "narrative_type" in columns else "NULL"
+    narrative_subtype_expr = (
+        "se.narrative_subtype" if "narrative_subtype" in columns else "NULL"
+    )
+    narrative_confidence_expr = (
+        "se.narrative_confidence" if "narrative_confidence" in columns else "NULL"
     )
     query = [
         f"""
@@ -164,6 +177,9 @@ def fetch_sentence_evidence(
                se.risk_terms,
                se.study_context,
                se.matched_terms,
+               {narrative_type_expr} AS narrative_type,
+               {narrative_subtype_expr} AS narrative_subtype,
+               {narrative_confidence_expr} AS narrative_confidence,
                {sentiment_label_expr},
                {sentiment_score_expr},
                {sentiment_model_expr},
@@ -199,41 +215,57 @@ def fetch_sentence_evidence(
 
     cur = conn.execute("\n".join(query), params)
     rows: List[SentenceEvidence] = []
+    columns_out = [col[0] for col in cur.description or []]
     for row in cur.fetchall():
+        record = {columns_out[idx]: value for idx, value in enumerate(row)}
         labels: list[str] = []
         seen: set[str] = set()
-        for idx in range(16, 20):
-            for label in _split_labels(row[idx]):
-                key = label.lower()
-                if key in seen:
+        for key in [
+            "comparative_terms",
+            "relationship_types",
+            "risk_terms",
+            "study_context",
+        ]:
+            for label in _split_labels(record.get(key)):
+                key_lower = label.lower()
+                if key_lower in seen:
                     continue
-                seen.add(key)
+                seen.add(key_lower)
                 labels.append(label)
+
+        for key in ("narrative_type", "narrative_subtype"):
+            value = record.get(key)
+            if value and value.lower() not in seen:
+                seen.add(value.lower())
+                labels.append(value)
 
         rows.append(
             SentenceEvidence(
-                doc_id=row[0],
-                sentence_id=row[1],
-                product_a=row[2],
-                product_a_alias=row[3],
-                product_b=row[4],
-                product_b_alias=row[5],
-                count=int(row[6] or 0),
-                sentence_text=row[7],
-                section=row[8],
-                sent_index=row[9],
-                publication_date=row[10],
-                journal=row[11],
-                recency_weight=row[12],
-                study_type=row[13],
-                study_type_weight=row[14],
-                combined_weight=row[15],
+                doc_id=record["doc_id"],
+                sentence_id=record["sentence_id"],
+                product_a=record["product_a"],
+                product_a_alias=record.get("product_a_alias"),
+                product_b=record["product_b"],
+                product_b_alias=record.get("product_b_alias"),
+                count=int(record.get("count", 0) or 0),
+                sentence_text=record["text"],
+                section=record.get("section"),
+                sent_index=record.get("sent_index"),
+                publication_date=record.get("publication_date"),
+                journal=record.get("journal"),
+                recency_weight=record.get("recency_weight"),
+                study_type=record.get("study_type"),
+                study_type_weight=record.get("study_type_weight"),
+                combined_weight=record.get("combined_weight"),
                 labels=labels,
-                matched_terms=row[20],
-                sentiment_label=row[21],
-                sentiment_score=row[22],
-                sentiment_model=row[23],
-                sentiment_inference_ts=row[24],
+                matched_terms=record.get("matched_terms"),
+                narrative_type=record.get("narrative_type"),
+                narrative_subtype=record.get("narrative_subtype"),
+                narrative_confidence=record.get("narrative_confidence"),
+                sentiment_label=record.get("sentiment_label"),
+                sentiment_score=record.get("sentiment_score"),
+                sentiment_model=record.get("sentiment_model"),
+                sentiment_inference_ts=record.get("sentiment_inference_ts"),
             )
         )
 

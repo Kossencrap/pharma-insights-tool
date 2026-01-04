@@ -1,13 +1,19 @@
-"""Label sentence-level sentiment from structured sentence JSONL."""
+﻿"""Label sentence-level sentiment from structured sentence JSONL."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.analytics.sentiment import classify_batch
 from src.storage import init_db, update_sentence_event_sentiment
+from src.utils.identifiers import build_sentence_id
 
 DEFAULT_INPUT_DIR = Path("data/processed")
 
@@ -43,7 +49,30 @@ def _load_sentence_records(path: Path) -> list[dict]:
         for line in f:
             if not line.strip():
                 continue
-            records.append(json.loads(line))
+            raw = json.loads(line)
+            if "sections" in raw and raw.get("doc_id"):
+                doc_id = raw["doc_id"]
+                for section in raw.get("sections", []):
+                    section_name = section.get("name")
+                    for sentence in section.get("sentences", []):
+                        text = sentence.get("text")
+                        if not text:
+                            continue
+                        sentence_id = build_sentence_id(
+                            doc_id,
+                            section_name or sentence.get("section") or "body",
+                            sentence.get("index", 0),
+                        )
+                        records.append(
+                            {
+                                "doc_id": doc_id,
+                                "sentence_id": sentence_id,
+                                "section": section_name,
+                                "sentence_text": text,
+                            }
+                        )
+            else:
+                records.append(raw)
     return records
 
 
@@ -54,7 +83,19 @@ def _write_sentence_records(path: Path, records: list[dict]) -> None:
             f.write(json.dumps(record, default=str) + "\n")
 
 
-def _build_sentiment_updates(records: list[dict]) -> tuple[list[tuple], int]:
+def _resolve_pairs(conn, doc_id: str, sentence_id: str) -> list[tuple[str, str]]:
+    cur = conn.execute(
+        """
+        SELECT product_a, product_b
+        FROM sentence_events
+        WHERE doc_id = ? AND sentence_id = ?
+        """,
+        (doc_id, sentence_id),
+    )
+    return [(row[0], row[1]) for row in cur.fetchall()]
+
+
+def _build_sentiment_updates(records: list[dict], conn=None) -> tuple[list[tuple], int]:
     updates: list[tuple] = []
     skipped = 0
     for record in records:
@@ -62,21 +103,31 @@ def _build_sentiment_updates(records: list[dict]) -> tuple[list[tuple], int]:
         sentence_id = record.get("sentence_id")
         product_a = record.get("product_a")
         product_b = record.get("product_b")
-        if not all([doc_id, sentence_id, product_a, product_b]):
+        pairs: list[tuple[str | None, str | None]] = []
+        if all([doc_id, sentence_id, product_a, product_b]):
+            pairs = [(product_a, product_b)]
+        elif conn and doc_id and sentence_id:
+            resolved = _resolve_pairs(conn, doc_id, sentence_id)
+            if not resolved:
+                skipped += 1
+                continue
+            pairs = resolved
+        else:
             skipped += 1
             continue
-        updates.append(
-            (
-                record.get("sentiment_label"),
-                record.get("sentiment_score"),
-                record.get("sentiment_model"),
-                record.get("sentiment_inference_ts"),
-                doc_id,
-                sentence_id,
-                product_a,
-                product_b,
+        for prod_a, prod_b in pairs:
+            updates.append(
+                (
+                    record.get("sentiment_label"),
+                    record.get("sentiment_score"),
+                    record.get("sentiment_model"),
+                    record.get("sentiment_inference_ts"),
+                    doc_id,
+                    sentence_id,
+                    prod_a,
+                    prod_b,
+                )
             )
-        )
     return updates, skipped
 
 
@@ -87,7 +138,7 @@ def _update_sentiment_in_db(db_path: Path, records: list[dict]) -> None:
         )
 
     conn = init_db(db_path)
-    updates, skipped = _build_sentiment_updates(records)
+    updates, skipped = _build_sentiment_updates(records, conn)
     if not updates:
         print("No sentiment records contained DB keys to update.")
         return

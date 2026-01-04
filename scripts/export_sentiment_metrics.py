@@ -1,4 +1,4 @@
-"""Aggregate sentiment ratios and export them to parquet files."""
+﻿"""Aggregate sentiment ratios and export them to parquet files."""
 
 from __future__ import annotations
 
@@ -8,6 +8,18 @@ import sqlite3
 import sys
 from pathlib import Path
 from typing import Dict, List
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# --- AUTO: ensure repo root on sys.path (PowerShell patch) ---
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# --- END AUTO ---
 
 from src.analytics.time_series import sentiment_bucket_counts
 

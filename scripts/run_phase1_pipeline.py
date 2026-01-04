@@ -1,4 +1,4 @@
-"""One-command orchestrator for the Phase 1 pipeline.
+﻿"""One-command orchestrator for the Phase 1 pipeline.
 
 This script stitches together ingestion, labeling, metrics aggregation,
 exports, and dashboards artifacts to satisfy the "one blessed path" acceptance
@@ -13,10 +13,21 @@ import sys
 from pathlib import Path
 from typing import Iterable, List
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# --- AUTO: ensure repo root on sys.path (PowerShell patch) ---
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# --- END AUTO ---
+
 from src.analytics import load_product_config
 from scripts.export_batch import run_export
 
-ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB = Path("data/europepmc.sqlite")
 DEFAULT_PRODUCTS = ROOT / "config" / "products.json"
 DEFAULT_STUDY_WEIGHTS = ROOT / "config" / "study_type_weights.json"

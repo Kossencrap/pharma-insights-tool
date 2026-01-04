@@ -1,4 +1,4 @@
-"""Aggregate weekly/monthly metrics and export them to parquet files."""
+﻿"""Aggregate weekly/monthly metrics and export them to parquet files."""
 
 from __future__ import annotations
 
@@ -7,6 +7,19 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Dict, List
+
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# --- AUTO: ensure repo root on sys.path (PowerShell patch) ---
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# --- END AUTO ---
 
 from src.analytics.time_series import TimeSeriesConfig, add_change_metrics, bucket_counts
 

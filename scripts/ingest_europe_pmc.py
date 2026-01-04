@@ -1,4 +1,4 @@
-"""CLI ingestion runner for Europe PMC -> structured documents."""
+﻿"""CLI ingestion runner for Europe PMC -> structured documents."""
 
 from __future__ import annotations
 
@@ -14,6 +14,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import json
+# --- AUTO: ensure repo root on sys.path (PowerShell patch) ---
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# --- END AUTO ---
+
 from src.analytics import (
     MentionExtractor,
     ProductMention,
@@ -375,10 +383,10 @@ def run_ingestion(
 
     documents = []
     with structured_path.open("w", encoding="utf-8") as f:
-    for record in normalized_results:
-        doc = splitter.split_document(record)
-        documents.append(doc)
-        f.write(json.dumps(doc.to_dict()) + "\n")
+        for record in normalized_results:
+            doc = splitter.split_document(record)
+            documents.append(doc)
+            f.write(json.dumps(doc.to_dict()) + "\n")
 
             if conn:
                 upsert_document(conn, doc, raw_json=record.raw)
@@ -424,7 +432,9 @@ def run_ingestion(
                                         file=sys.stderr,
                                     )
                                     warned_pair_cap = True
-                            sentence_co_mentions.extend((sentence_id, a, b, count) for a, b, count in sentence_pairs)
+                            sentence_co_mentions.extend(
+                                (sentence_id, a, b, count) for a, b, count in sentence_pairs
+                            )
                             mention_rows = [
                                 (
                                     f"{sentence_id}:{m.product_canonical}:{m.start_char}-{m.end_char}",

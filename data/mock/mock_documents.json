@@ -1,0 +1,94 @@
+[
+  {
+    "doc_id": "mock:metformin-insulin-rct-2024",
+    "source": "mock",
+    "title": "Randomized phase II combination of metformin and insulin",
+    "journal": "Mock Trials",
+    "publication_date": "2024-02-15",
+    "study_design": "randomized controlled trial",
+    "study_phase": "phase II",
+    "sections": [
+      {
+        "name": "abstract",
+        "sentences": [
+          "Metformin combined with insulin improved HbA1c and overall survival in patients with type 2 diabetes and obesity in a randomized phase II trial.",
+          "The primary endpoint was reduced weight loss versus insulin monotherapy, and metformin's profile was superior.",
+          "Adverse events were reduced and tolerability improved compared to insulin alone."
+        ]
+      }
+    ]
+  },
+  {
+    "doc_id": "mock:insulin-switch-2023",
+    "source": "mock",
+    "title": "Switching strategies for Glucophage and rapid-acting insulin",
+    "journal": "Translational Endocrinology",
+    "publication_date": "2023-11-20",
+    "study_design": "clinical trial",
+    "sections": [
+      {
+        "name": "abstract",
+        "sentences": [
+          "Patients with type 2 diabetes and cardiovascular disease switched to rapid-acting insulin after Glucophage failed to control blood pressure despite intensive counseling.",
+          "The add-on therapy of metformin plus insulin was non-inferior compared to insulin alone for obesity management but hypoglycemia risk increased.",
+          "However, safety signals were not improved for chronic kidney disease subgroups, and adverse events remained serious for insulin's cohort."
+        ]
+      }
+    ]
+  },
+  {
+    "doc_id": "mock:device-review-2024",
+    "source": "mock",
+    "title": "Device-enabled delivery narratives for insulin and metformin",
+    "journal": "Digital Diabetes Review",
+    "publication_date": "2024-01-05",
+    "study_design": "review",
+    "sections": [
+      {
+        "name": "summary",
+        "sentences": [
+          "A meta-analysis suggested insulin delivered via a connected pen device was better than metformin for rapid fasting control in type 2 diabetes.",
+          "Metformin's formulation was administered via the same device and was similar to insulin in tolerability for obesity and cardiovascular disease cohorts.",
+          "Review authors noted the device reduced serious adverse events yet safety concerns persisted for metformin add-on therapy among chronic kidney disease patients."
+        ]
+      }
+    ]
+  },
+  {
+    "doc_id": "mock:phase3b-2022",
+    "source": "mock",
+    "title": "Phase 3b comparative trial of insulin versus metformin",
+    "journal": "CardioMetabolic Evidence",
+    "publication_date": "2022-08-18",
+    "study_design": "clinical trial",
+    "study_phase": "phase 3b",
+    "sections": [
+      {
+        "name": "results",
+        "sentences": [
+          "In a phase 3b clinical trial for type 2 diabetes, insulin versus metformin showed equivalent HbA1c outcomes but inferior body weight reduction.",
+          "Both arms achieved overall survival neutrality in obesity-focused analyses, so the study context emphasized evidence review of switching strategies.",
+          "Despite neutral efficacy, the paper recommended continuing metformin add on therapy for cardiovascular safety and chronic kidney disease risk mitigation."
+        ]
+      }
+    ]
+  },
+  {
+    "doc_id": "mock:cohort-risk-2021",
+    "source": "mock",
+    "title": "Cohort risk framing for metformin and insulin",
+    "journal": "Safety Signals",
+    "publication_date": "2021-05-30",
+    "study_design": "observational study",
+    "sections": [
+      {
+        "name": "findings",
+        "sentences": [
+          "A cohort study reported that metformin combined with insulin decreased toxicity and improved safety perceptions among patients with type 2 diabetes and obesity.",
+          "Case report data indicated metformin and insulin add-on therapy might reduce serious adverse events in chronic kidney disease yet concerns about fatal hypoglycemia remained for cardiovascular disease patients.",
+          "Clinicians compared insulin pens to metformin tablets and concluded insulin was not inferior to metformin for tolerability in obesity management."
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,217 @@
+{
+  "terms": {
+    "comparative_terms": [
+      "vs",
+      "versus",
+      "compared with",
+      "compared to",
+      "superior",
+      "non-inferior",
+      "noninferior",
+      "better than",
+      "worse than",
+      "similar to",
+      "equivalent to",
+      "outperformed",
+      "inferior to",
+      "non inferior"
+    ],
+    "relationship_patterns": {
+      "combination": [
+        "and",
+        "plus",
+        "combined with",
+        "co-administered",
+        "coadministered",
+        "co-administration",
+        "coadministration",
+        "in combination with"
+      ],
+      "add-on therapy": [
+        "add-on",
+        "add on",
+        "added to",
+        "add-on therapy"
+      ],
+      "delivery": [
+        "delivered via",
+        "administered via",
+        "delivery",
+        "device",
+        "pen",
+        "formulation"
+      ],
+      "switching": [
+        "switched to",
+        "switching to",
+        "converted to",
+        "transitioned to"
+      ]
+    },
+    "risk_terms": [
+      "risk",
+      "adverse",
+      "adverse event",
+      "adverse events",
+      "serious adverse event",
+      "serious adverse events",
+      "side effect",
+      "side effects",
+      "safety",
+      "tolerability",
+      "hypoglycemia",
+      "toxicity",
+      "serious",
+      "fatal",
+      "ae",
+      "aes"
+    ],
+    "study_context_terms": [
+      "trial",
+      "randomized",
+      "randomised",
+      "meta-analysis",
+      "systematic review",
+      "review",
+      "mouse",
+      "mice",
+      "in vitro",
+      "phase",
+      "cohort",
+      "enrollment",
+      "recruitment"
+    ],
+    "trial_phase_patterns": [
+      "phase\\s*[1-4](?:/[1-4])?[ab]?",
+      "phase\\s*i{1,3}v?[ab]?",
+      "phase-?[1-4][ab]?"
+    ],
+    "endpoint_terms": [
+      "primary endpoint",
+      "secondary endpoint",
+      "overall survival",
+      "progression-free survival",
+      "pfs",
+      "os",
+      "response rate",
+      "objective response",
+      "hba1c",
+      "a1c",
+      "body weight",
+      "weight loss",
+      "blood pressure"
+    ]
+  },
+  "narratives": [
+    {
+      "name": "safety_reassurance",
+      "type": "safety",
+      "subtype": "safety_reassurance",
+      "confidence": 0.9,
+      "priority": 100,
+      "requires": {
+        "risk_terms": ["*"]
+      }
+    },
+    {
+      "name": "positioning_combination",
+      "type": "positioning",
+      "subtype": "combination",
+      "confidence": 0.85,
+      "priority": 90,
+      "requires": {
+        "relationship_types": ["combination", "add-on therapy"]
+      }
+    },
+    {
+      "name": "positioning_switching",
+      "type": "positioning",
+      "subtype": "switching",
+      "confidence": 0.8,
+      "priority": 85,
+      "requires": {
+        "relationship_types": ["switching"]
+      }
+    },
+    {
+      "name": "positioning_delivery",
+      "type": "positioning",
+      "subtype": "delivery",
+      "confidence": 0.75,
+      "priority": 80,
+      "requires": {
+        "relationship_types": ["delivery"]
+      }
+    },
+    {
+      "name": "comparative_advantage",
+      "type": "comparative",
+      "subtype": "comparative_advantage",
+      "confidence": 0.8,
+      "priority": 70,
+      "requires": {
+        "comparative_terms": ["*"]
+      },
+      "requires_sentiment": ["POS", "positive"]
+    },
+    {
+      "name": "comparative_disadvantage",
+      "type": "comparative",
+      "subtype": "comparative_disadvantage",
+      "confidence": 0.8,
+      "priority": 70,
+      "requires": {
+        "comparative_terms": ["*"]
+      },
+      "requires_sentiment": ["NEG", "negative"]
+    },
+    {
+      "name": "comparative_neutral",
+      "type": "comparative",
+      "subtype": "comparative",
+      "confidence": 0.75,
+      "priority": 60,
+      "requires": {
+        "comparative_terms": ["*"]
+      }
+    },
+    {
+      "name": "evidence_clinical_trial",
+      "type": "evidence",
+      "subtype": "clinical_trial",
+      "confidence": 0.7,
+      "priority": 50,
+      "requires": {
+        "study_context": ["phase", "trial", "randomized", "randomised"]
+      }
+    },
+    {
+      "name": "evidence_review",
+      "type": "evidence",
+      "subtype": "evidence_review",
+      "confidence": 0.7,
+      "priority": 40,
+      "requires": {
+        "study_context": ["review", "meta-analysis", "systematic review"]
+      }
+    },
+    {
+      "name": "efficacy_positive_signal",
+      "type": "efficacy",
+      "subtype": "positive_signal",
+      "confidence": 0.6,
+      "priority": 30,
+      "requires": {},
+      "requires_sentiment": ["POS", "positive"]
+    },
+    {
+      "name": "concern_negative_signal",
+      "type": "concern",
+      "subtype": "negative_signal",
+      "confidence": 0.6,
+      "priority": 30,
+      "requires": {},
+      "requires_sentiment": ["NEG", "negative"]
+    }
+  ]
+}

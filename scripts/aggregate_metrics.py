@@ -5,13 +5,26 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
-from src.analytics.time_series import TimeSeriesConfig, add_change_metrics, bucket_counts
+from src.analytics.time_series import (
+    TimeSeriesConfig,
+    add_change_metrics,
+    bucket_counts,
+    compute_change_status,
+)
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
 DEFAULT_OUTDIR = Path("data/processed/metrics")
+
+
+@dataclass
+class NarrativeChangeConfig:
+    lookback: int = 4
+    min_ratio: float = 0.4
+    min_count: float = 3.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,6 +47,24 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=["W", "M"],
         help="Time buckets to compute: weekly (W) and/or monthly (M).",
+    )
+    parser.add_argument(
+        "--change-lookback",
+        type=int,
+        default=4,
+        help="Number of prior buckets to average when computing narrative change status.",
+    )
+    parser.add_argument(
+        "--change-min-ratio",
+        type=float,
+        default=0.4,
+        help="Minimum ratio delta to flag a narrative as significantly changing.",
+    )
+    parser.add_argument(
+        "--change-min-count",
+        type=float,
+        default=3.0,
+        help="Minimum absolute delta (latest vs reference) to flag significant change.",
     )
     return parser.parse_args()
 
@@ -147,6 +178,42 @@ def _aggregate_weighted_co_mentions(con: sqlite3.Connection, freq: str) -> List[
     )
 
 
+def _aggregate_narratives(
+    con: sqlite3.Connection, freq: str, change_config: NarrativeChangeConfig
+) -> Tuple[List[dict], List[dict]]:
+    rows = _load_rows(
+        con,
+        """
+        SELECT d.publication_date,
+               se.narrative_type,
+               se.narrative_subtype,
+               se.narrative_confidence
+        FROM sentence_events se
+        JOIN documents d ON se.doc_id = d.doc_id
+        WHERE d.publication_date IS NOT NULL
+          AND se.narrative_type IS NOT NULL
+        """,
+    )
+
+    config = TimeSeriesConfig(
+        timestamp_column="publication_date",
+        freq=freq,
+        group_columns=["narrative_type", "narrative_subtype"],
+    )
+    agg = bucket_counts(config, rows)
+    change_rows = compute_change_status(
+        agg,
+        group_columns=["narrative_type", "narrative_subtype"],
+        lookback=change_config.lookback,
+        min_ratio=change_config.min_ratio,
+        min_count=change_config.min_count,
+    )
+    enriched = add_change_metrics(
+        agg, group_columns=["narrative_type", "narrative_subtype"]
+    )
+    return enriched, change_rows
+
+
 def _write_rows(outdir: Path, name: str, frames: Dict[str, List[dict]]) -> None:
     """Write aggregated rows to disk.
 
@@ -185,19 +252,30 @@ def main() -> None:
     mentions: Dict[str, List[dict]] = {}
     co_mentions: Dict[str, List[dict]] = {}
     weighted_co_mentions: Dict[str, List[dict]] = {}
+    narratives: Dict[str, List[dict]] = {}
+    narrative_changes: Dict[str, List[dict]] = {}
     validation: dict = {}
+
+    change_config = NarrativeChangeConfig(
+        lookback=args.change_lookback,
+        min_ratio=args.change_min_ratio,
+        min_count=args.change_min_count,
+    )
 
     for freq in args.freq:
         documents[freq] = _aggregate_documents(con, freq)
         mentions[freq] = _aggregate_mentions(con, freq)
         co_mentions[freq] = _aggregate_co_mentions(con, freq)
         weighted_co_mentions[freq] = _aggregate_weighted_co_mentions(con, freq)
+        narratives[freq], narrative_changes[freq] = _aggregate_narratives(con, freq, change_config)
     validation = _validation_metrics(con)
 
     _write_rows(args.outdir, "documents", documents)
     _write_rows(args.outdir, "mentions", mentions)
     _write_rows(args.outdir, "co_mentions", co_mentions)
     _write_rows(args.outdir, "co_mentions_weighted", weighted_co_mentions)
+    _write_rows(args.outdir, "narratives", narratives)
+    _write_rows(args.outdir, "narratives_change", narrative_changes)
     with (args.outdir / "validation_metrics.json").open("w", encoding="utf-8") as f:
         json.dump(validation, f, indent=2)
     print(f"Wrote validation metrics to {args.outdir / 'validation_metrics.json'}")

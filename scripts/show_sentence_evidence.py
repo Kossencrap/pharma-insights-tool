@@ -79,6 +79,15 @@ def main() -> None:
         print(header)
         if aliases:
             print("Aliases matched: " + ", ".join(aliases))
+        if evidence.indications:
+            print("Indications: " + ", ".join(evidence.indications))
+        if evidence.narrative_type:
+            narrative_bits = [f"type={evidence.narrative_type}"]
+            if evidence.narrative_subtype:
+                narrative_bits.append(f"subtype={evidence.narrative_subtype}")
+            if evidence.narrative_confidence is not None:
+                narrative_bits.append(f"confidence={evidence.narrative_confidence:.2f}")
+            print("Narrative: " + ", ".join(narrative_bits))
         print(evidence.sentence_text.strip())
         if evidence.labels:
             print(f"Labels: {', '.join(evidence.labels)}")

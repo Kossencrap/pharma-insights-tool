@@ -151,7 +151,8 @@ def main() -> None:
 
     ingestion_cmd = [
         sys.executable,
-        str(ROOT / "scripts" / "ingest_europe_pmc.py"),
+        "-m",
+        "scripts.ingest_europe_pmc",
     ]
     for name in product_names:
         ingestion_cmd.extend(["-p", name])
@@ -194,7 +195,8 @@ def main() -> None:
 
     label_events_cmd = [
         sys.executable,
-        str(ROOT / "scripts" / "label_sentence_events.py"),
+        "-m",
+        "scripts.label_sentence_events",
         "--db",
         str(args.db),
         "--limit",
@@ -207,7 +209,8 @@ def main() -> None:
 
     sentiment_cmd = [
         sys.executable,
-        str(ROOT / "scripts" / "label_sentence_sentiment.py"),
+        "-m",
+        "scripts.label_sentence_sentiment",
         "--input",
         str(structured_path),
         "--db",
@@ -220,7 +223,8 @@ def main() -> None:
 
     aggregate_cmd = [
         sys.executable,
-        str(ROOT / "scripts" / "aggregate_metrics.py"),
+        "-m",
+        "scripts.aggregate_metrics",
         "--db",
         str(args.db),
         "--outdir",
@@ -230,7 +234,8 @@ def main() -> None:
 
     sentiment_metrics_cmd = [
         sys.executable,
-        str(ROOT / "scripts" / "export_sentiment_metrics.py"),
+        "-m",
+        "scripts.export_sentiment_metrics",
         "--db",
         str(args.db),
         "--outdir",

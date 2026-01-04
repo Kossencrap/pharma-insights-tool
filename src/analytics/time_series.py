@@ -124,6 +124,82 @@ def add_change_metrics(
     return results
 
 
+def compute_change_status(
+    agg_rows: List[Dict[str, object]],
+    *,
+    group_columns: Optional[Sequence[str]] = None,
+    value_column: str = "count",
+    lookback: int = 4,
+    min_ratio: float = 0.4,
+    min_count: float = 3.0,
+) -> List[Dict[str, object]]:
+    """Classify latest bucket per group as new/disappearing/significant change."""
+
+    group_cols = list(group_columns or [])
+    groups: Dict[tuple, List[Dict[str, object]]] = {}
+    for row in agg_rows:
+        key = tuple(row.get(col) for col in group_cols)
+        groups.setdefault(key, []).append(row)
+
+    results: List[Dict[str, object]] = []
+    for key, rows in groups.items():
+        rows.sort(key=lambda r: r["bucket_start"])
+        if not rows:
+            continue
+
+        latest = rows[-1]
+        history_rows = rows[:-1]
+        recent_history = history_rows[-lookback:]
+        reference_values = [
+            float(history.get(value_column, 0) or 0) for history in recent_history
+        ]
+        reference_avg = sum(reference_values) / len(reference_values) if reference_values else 0.0
+        latest_value = float(latest.get(value_column, 0) or 0)
+
+        status = "stable"
+        delta_count = None
+        delta_ratio = None
+        reference_present = bool(reference_values)
+
+        if not reference_present or reference_avg == 0:
+            if latest_value >= min_count:
+                status = "new"
+            else:
+                status = "insufficient_history"
+        else:
+            delta_count = latest_value - reference_avg
+            if reference_avg:
+                delta_ratio = delta_count / reference_avg
+            if latest_value <= 0 and reference_avg >= min_count:
+                status = "disappearing"
+            elif (
+                delta_ratio is not None
+                and abs(delta_ratio) >= min_ratio
+                and abs(delta_count) >= min_count
+            ):
+                status = "significant_increase" if delta_ratio > 0 else "significant_decrease"
+
+        entry = {col: key[i] for i, col in enumerate(group_cols)}
+        entry.update(
+            {
+                "bucket_start": latest["bucket_start"],
+                value_column: latest_value,
+                "reference_avg": reference_avg if reference_present else None,
+                "delta_count": delta_count,
+                "delta_ratio": delta_ratio,
+                "status": status,
+                "lookback_used": len(reference_values),
+                "min_ratio": min_ratio,
+                "min_count": min_count,
+            }
+        )
+        results.append(entry)
+
+    sort_keys = group_cols + ["bucket_start"]
+    results.sort(key=lambda r: tuple(r.get(k) for k in sort_keys))
+    return results
+
+
 def add_sentiment_ratios(
     agg_rows: List[Dict[str, object]],
     *,

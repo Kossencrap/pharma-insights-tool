@@ -25,6 +25,12 @@ Phase 2 organizes Phase-1 signals into explicit narratives and records what cont
    - “Narrative cards” show the label, confidence breakdown, top evidence sentences, and change indicator (↑/↓/new).
    - Cards integrate with existing dashboard/CLI and are exportable as JSON/CSV with the manifest.
 
+## Narrative schema configuration
+- The deterministic taxonomy that powers the capabilities above lives in `config/narratives.json`.
+- The file contains both the term lists (comparative, risk, relationship, etc.) used during context parsing and the ordered narrative rules with priorities, sentiment constraints, and confidence scores.
+- Updating the JSON is the single supported way to add/retire narratives in Phase 2; scripts like `label_sentence_events.py` and both dashboards automatically pick up changes after re-running the pipeline.
+- Tests cover the schema loader plus representative rules so the taxonomy stays auditable.
+
 ## Explicitly out of scope
 - Clinical decision support, outcome prediction, or causal claims.
 - Generative summaries without direct sentence references.
@@ -46,5 +52,5 @@ Phase 2 organizes Phase-1 signals into explicit narratives and records what cont
 
 ## Next steps for the backlog and guardrails
 1. Reflect this definition in backlog epics and technical spikes (narrative labels, BERT checkpoints), plus UI stories for narrative cards.
-2. Extend `functional_checks`/pipeline coverage to include narrative labeling + change attribution so Phase 2 has the same one-command readiness as Phase 1.
+2. Extend `functional_checks`/pipeline coverage to include narrative labeling + change attribution so Phase 2 has the same one-command readiness as Phase 1; the `narratives_change_{freq}.parquet` export and dashboard change view are now live, so wire them into the checks.
 3. Define measurable KPIs per capability (label precision, minimum delta for “significant shift,” etc.) to make the acceptance criteria objective.

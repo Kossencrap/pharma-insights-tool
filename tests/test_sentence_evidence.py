@@ -55,7 +55,13 @@ def _seed(db_path: Path) -> sqlite3.Connection:
     )
 
     con.execute(
-        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        """
+        INSERT INTO sentence_events (
+            doc_id, sentence_id, product_a, product_b,
+            comparative_terms, relationship_types, risk_terms, study_context, matched_terms, context_rule_hits,
+            narrative_type, narrative_subtype, narrative_confidence
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
         (
             "doc-new",
             "s-new",
@@ -66,10 +72,20 @@ def _seed(db_path: Path) -> sqlite3.Connection:
             "reduced risk",
             "trial",
             "ProductA vs ProductB",
+            '["comparative_terms","risk_terms"]',
+            "comparative",
+            "comparative_advantage",
+            0.8,
         ),
     )
     con.execute(
-        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        """
+        INSERT INTO sentence_events (
+            doc_id, sentence_id, product_a, product_b,
+            comparative_terms, relationship_types, risk_terms, study_context, matched_terms, context_rule_hits,
+            narrative_type, narrative_subtype, narrative_confidence
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
         (
             "doc-old",
             "s-old",
@@ -80,6 +96,10 @@ def _seed(db_path: Path) -> sqlite3.Connection:
             "",
             "observational",
             "pair mention",
+            '["study_context"]',
+            "evidence",
+            "clinical_trial",
+            0.6,
         ),
     )
     con.commit()
@@ -96,10 +116,16 @@ def test_fetch_sentence_evidence_orders_and_filters(tmp_path: Path) -> None:
     assert "superior" in rows[0].labels and "improves" in rows[0].labels
     assert rows[0].product_a_alias == "ProdA"
     assert rows[0].product_b_alias == "ProdB"
+    assert "comparative_terms" in rows[0].context_rule_hits
 
     filtered = fetch_sentence_evidence(con, product_a="ProductA", pub_after="2023-12-31")
     assert len(filtered) == 1
     assert filtered[0].doc_id == "doc-new"
+
+    narrative_filtered = fetch_sentence_evidence(con, narrative_type="evidence")
+    assert len(narrative_filtered) == 1
+    assert narrative_filtered[0].narrative_type == "evidence"
+    assert narrative_filtered[0].narrative_subtype == "clinical_trial"
 
 
 def test_serialize_sentence_evidence_includes_computed_fields(tmp_path: Path) -> None:
@@ -116,6 +142,7 @@ def test_serialize_sentence_evidence_includes_computed_fields(tmp_path: Path) ->
     assert serialized[0]["labels"]  # should include combined labels from all sources
     assert serialized[0]["publication_date"] == "2024-02-01"
     assert serialized[1]["publication_date"] == "2023-12-15"
+    assert "context_rule_hits" in serialized[0]
 
     # round-trip to CSV-like ordering stability
     keys = list(serialized[0].keys())

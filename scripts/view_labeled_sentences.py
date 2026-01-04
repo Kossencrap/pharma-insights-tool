@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 from src.analytics import fetch_sentence_evidence
 from src.analytics.weights import STUDY_TYPE_ALIASES, load_study_type_weights
@@ -26,10 +26,22 @@ def _resolve_weight(study_type: str | None, lookup: dict[str, float]) -> float:
 
 
 def _load_evidence(
-    db_path: Path, weight_lookup: dict[str, float], *, product_a: str | None, product_b: str | None
+    db_path: Path,
+    weight_lookup: dict[str, float],
+    *,
+    product_a: str | None,
+    product_b: str | None,
+    narrative_type: Optional[str],
+    narrative_subtype: Optional[str],
 ) -> Iterable[dict]:
     conn = sqlite3.connect(db_path)
-    rows = fetch_sentence_evidence(conn, product_a=product_a, product_b=product_b)
+    rows = fetch_sentence_evidence(
+        conn,
+        product_a=product_a,
+        product_b=product_b,
+        narrative_type=narrative_type,
+        narrative_subtype=narrative_subtype,
+    )
     for row in rows:
         study_weight = row.study_type_weight or _resolve_weight(row.study_type, weight_lookup)
         base = row.recency_weight or 1.0
@@ -60,6 +72,8 @@ def main() -> None:
     col1, col2 = st.columns(2)
     product_a = col1.text_input("Product A filter") or None
     product_b = col2.text_input("Product B filter") or None
+    narrative_type = st.sidebar.text_input("Narrative type filter").strip() or None
+    narrative_subtype = st.sidebar.text_input("Narrative subtype filter").strip() or None
 
     if st.button("Load evidence"):
         if not db_path.exists():
@@ -67,17 +81,31 @@ def main() -> None:
             return
 
         evidence = list(
-            _load_evidence(db_path, weight_lookup, product_a=product_a, product_b=product_b)
+            _load_evidence(
+                db_path,
+                weight_lookup,
+                product_a=product_a,
+                product_b=product_b,
+                narrative_type=narrative_type,
+                narrative_subtype=narrative_subtype,
+            )
         )
         if not evidence:
             st.info("No evidence found for the selected filters.")
             return
 
         st.caption(f"Showing {len(evidence)} sentences")
+        grouped = {}
         for record in evidence:
-            with st.expander(
-                f"{record['doc_id']} | {record['product_a']} vs {record['product_b']} (confidence: {record['confidence']:.3f})"
-            ):
+            key = record.get("narrative_type") or "(no narrative)"
+            grouped.setdefault(key, []).append(record)
+
+        for narrative_key in sorted(grouped.keys()):
+            st.subheader(f"Narrative: {narrative_key}")
+            for record in grouped[narrative_key]:
+                with st.expander(
+                    f"{record['doc_id']} | {record['product_a']} vs {record['product_b']} (confidence: {record['confidence']:.3f})"
+                ):
                 st.write(record["sentence_text"])
                 meta_cols = st.columns(4)
                 meta_cols[0].metric("Recency", f"{record.get('recency_weight', 1.0):.2f}")
@@ -91,6 +119,15 @@ def main() -> None:
                     st.write("**Labels:**", ", ".join(record["labels"]))
                 if record.get("matched_terms"):
                     st.write("**Matched terms:**", record["matched_terms"])
+                if record.get("context_rule_hits"):
+                    st.write("**Context rules:**", ", ".join(record["context_rule_hits"]))
+                if record.get("narrative_type"):
+                    narrative = record["narrative_type"]
+                    if record.get("narrative_subtype"):
+                        narrative += f" ({record['narrative_subtype']})"
+                    if record.get("narrative_confidence") is not None:
+                        narrative += f" | conf={record['narrative_confidence']:.2f}"
+                    st.caption(f"Narrative: {narrative}")
                 st.json({k: v for k, v in record.items() if k not in {"sentence_text"}})
 
 

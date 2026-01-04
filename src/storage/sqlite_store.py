@@ -99,12 +99,29 @@ CREATE_TABLES_SQL = [
         risk_terms TEXT,
         study_context TEXT,
         matched_terms TEXT,
+        context_rule_hits TEXT,
+        narrative_type TEXT,
+        narrative_subtype TEXT,
+        narrative_confidence REAL,
         sentiment_label TEXT,
         sentiment_score REAL,
         sentiment_model TEXT,
         sentiment_inference_ts TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (doc_id, sentence_id, product_a, product_b),
+        FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE,
+        FOREIGN KEY (sentence_id) REFERENCES sentences(sentence_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS sentence_indications (
+        doc_id TEXT NOT NULL,
+        sentence_id TEXT NOT NULL,
+        indication_canonical TEXT NOT NULL,
+        alias_matched TEXT NOT NULL,
+        start_char INTEGER,
+        end_char INTEGER,
+        PRIMARY KEY (doc_id, sentence_id, indication_canonical, alias_matched),
         FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE,
         FOREIGN KEY (sentence_id) REFERENCES sentences(sentence_id) ON DELETE CASCADE
     )
@@ -131,6 +148,12 @@ CREATE_TABLES_SQL = [
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_mentions_sentence ON product_mentions(sentence_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_sentence_indications_doc ON sentence_indications(doc_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_sentence_indications_sentence ON sentence_indications(sentence_id)
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_co_mentions_pair ON co_mentions(product_a, product_b)
@@ -181,6 +204,9 @@ CREATE_VIEWS_SQL = [
         se.risk_terms,
         se.study_context,
         se.matched_terms,
+        se.narrative_type,
+        se.narrative_subtype,
+        se.narrative_confidence,
         se.sentiment_label,
         se.sentiment_score,
         se.sentiment_model,
@@ -294,6 +320,10 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         "risk_terms",
         "study_context",
         "matched_terms",
+        "context_rule_hits",
+        "narrative_type",
+        "narrative_subtype",
+        "narrative_confidence",
         "sentiment_label",
         "sentiment_score",
         "sentiment_model",
@@ -324,6 +354,7 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         "risk_terms",
         "study_context",
         "matched_terms",
+        "context_rule_hits",
         "created_at",
     }
     if not required.issubset(existing):
@@ -335,6 +366,10 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         ("sentiment_score", "REAL"),
         ("sentiment_model", "TEXT"),
         ("sentiment_inference_ts", "TEXT"),
+        ("narrative_type", "TEXT"),
+        ("narrative_subtype", "TEXT"),
+        ("narrative_confidence", "REAL"),
+        ("context_rule_hits", "TEXT"),
     ]
     for column, ddl in optional_columns:
         if column not in existing:
@@ -459,6 +494,32 @@ def insert_mentions(
     )
 
 
+def insert_sentence_indications(
+    conn: sqlite3.Connection,
+    doc_id: str,
+    sentence_id: str,
+    indications: Iterable[Tuple[str, str, int, int]],
+) -> None:
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO sentence_indications (
+            doc_id, sentence_id, indication_canonical, alias_matched, start_char, end_char
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            (
+                doc_id,
+                sentence_id,
+                canonical,
+                alias,
+                start,
+                end,
+            )
+            for canonical, alias, start, end in indications
+        ),
+    )
+
+
 def insert_co_mentions(
     conn: sqlite3.Connection, doc_id: str, co_mentions: Iterable[Tuple[str, str, int]]
 ) -> None:
@@ -485,6 +546,10 @@ def insert_sentence_events(
             Optional[str],
             Optional[str],
             Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[float],
         ]
     ],
 ) -> None:
@@ -494,8 +559,9 @@ def insert_sentence_events(
         """
         INSERT OR REPLACE INTO sentence_events (
             doc_id, sentence_id, product_a, product_b,
-            comparative_terms, relationship_types, risk_terms, study_context, matched_terms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            comparative_terms, relationship_types, risk_terms, study_context, matched_terms, context_rule_hits,
+            narrative_type, narrative_subtype, narrative_confidence
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             (
@@ -508,6 +574,10 @@ def insert_sentence_events(
                 risk_terms,
                 study_context,
                 matched_terms,
+                context_rule_hits,
+                narrative_type,
+                narrative_subtype,
+                narrative_confidence,
             )
             for (
                 doc_id,
@@ -519,6 +589,10 @@ def insert_sentence_events(
                 risk_terms,
                 study_context,
                 matched_terms,
+                context_rule_hits,
+                narrative_type,
+                narrative_subtype,
+                narrative_confidence,
             ) in events
         ),
     )

@@ -3,6 +3,8 @@
 Product-centric scientific and narrative intelligence
 based on biomedical literature.
 
+> **Phase status:** Phase 1 MVP is complete; see `phase1-status.md` for the current capabilities and remaining hardening work.
+
 ## Project structure
 
 ```
@@ -15,6 +17,7 @@ pharma-insights-tool/
 ├── project-plan                     # Narrative requirements and MVP scope document
 ├── config/                          # Config files that drive ingestion and scoring
 │   ├── products.json                # Example product list with IDs and synonyms
+│   ├── narratives.json              # Narrative taxonomy (Phase 2) driving labels
 │   └── study_type_weights.json      # Heuristic weights for study-type evidence
 ├── data/                            # Git-ignored datasets and generated outputs
 │   ├── artifacts/                   # Derived assets (charts, metrics, exports)
@@ -48,6 +51,8 @@ pharma-insights-tool/
 │   │   ├── context_labels.py        # Rule-based context labeling of sentences
 │   │   ├── evidence.py              # Sentence-level evidence retrieval helpers
 │   │   ├── mention_extractor.py     # Product mention extraction from sentences
+│   │   ├── indication_extractor.py  # Deterministic indication/use-case tagging
+│   │   ├── narratives.py            # Deterministic narrative classification helpers
 │   │   ├── time_series.py           # Time-series metrics for literature trends
 │   │   └── weights.py               # Weighting helpers for evidence scoring
 │   ├── ingestion/                   # Europe PMC ingestion and query helpers
@@ -195,6 +200,23 @@ annotate it with deterministic sentiment labels:
 ```bash
 python scripts/label_sentence_sentiment.py --input data/processed/example_sentences.jsonl
 ```
+
+### Narrative taxonomy (Phase 2)
+Narrative labels, precedence, and the supporting term lists are defined in
+`config/narratives.json`. Update this file to add new narrative families, adjust
+priorities, or expand the context terms without touching code. Each rule lists
+the required context signals (e.g., comparative terms, risk phrases), optional
+sentiment constraints, and a confidence score. See `docs/phase2-narrative.md`
+for guidance on designing new rules and how they flow through
+`scripts/label_sentence_events.py`, the SQLite schema, and the dashboards.
+
+### Narrative change view
+Running `python -m scripts.aggregate_metrics` now emits
+`narratives_change_{w|m}.parquet` alongside the existing aggregates. These files
+flag each narrative subtype as `new`, `disappearing`, or a significant increase/
+decrease based on the most recent bucket versus the prior lookback window. The
+Streamlit dashboard exposes this under “Narrative change since last review,” so
+re-running the aggregator is all that’s needed to refresh the change view.
 
 To persist sentiment labels back into SQLite, include `--db`:
 

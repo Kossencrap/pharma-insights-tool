@@ -167,7 +167,10 @@ function Run-AggregateMetrics {
     Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
         'scripts/aggregate_metrics.py',
         '--db', $dbPath,
-        '--outdir', $outDir
+        '--outdir', $outDir,
+        '--change-lookback', '4',
+        '--change-min-ratio', '0.4',
+        '--change-min-count', '3'
     )
 }
 

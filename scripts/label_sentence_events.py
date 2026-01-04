@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from src.analytics.context_labels import classify_sentence_context, labels_to_columns
+from src.analytics.narratives import classify_narrative
 from src.storage import init_db, insert_sentence_events
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
@@ -91,18 +92,30 @@ def main() -> None:
     events = []
     for doc_id, sentence_id, product_a, product_b, text in rows:
         labels = classify_sentence_context(text)
-        columns = labels_to_columns(labels)
+        (
+            comparative_terms,
+            relationship_types,
+            risk_terms,
+            study_context,
+            matched_terms,
+            context_rule_hits,
+        ) = labels_to_columns(labels)
+        narrative = classify_narrative(labels)
         events.append(
             (
                 doc_id,
                 sentence_id,
                 product_a,
                 product_b,
-                columns[0],
-                columns[1],
-                columns[2],
-                columns[3],
-                columns[4],
+                comparative_terms,
+                relationship_types,
+                risk_terms,
+                study_context,
+                matched_terms,
+                context_rule_hits,
+                narrative.narrative_type,
+                narrative.narrative_subtype,
+                narrative.confidence,
             )
         )
 

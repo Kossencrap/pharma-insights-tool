@@ -12,6 +12,8 @@ from .evidence import (
     resolve_study_weight,
     serialize_sentence_evidence,
 )
+from .narratives import NarrativeClassification, classify_narrative
+from .indication_extractor import IndicationExtractor, load_indication_config
 from .mention_extractor import (
     MentionExtractor,
     ProductMention,
@@ -52,6 +54,8 @@ def mean_sentence_length(document: Document) -> float:
 
 
 __all__ = [
+    "IndicationExtractor",
+    "load_indication_config",
     "MentionExtractor",
     "ProductMention",
     "co_mentions_from_sentence",
@@ -79,4 +83,6 @@ __all__ = [
     "classify_batch",
     "classify_sentence",
     "resolve_study_weight",
+    "NarrativeClassification",
+    "classify_narrative",
 ]

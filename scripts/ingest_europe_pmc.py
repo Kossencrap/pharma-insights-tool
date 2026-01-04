@@ -24,6 +24,7 @@ from src.analytics import (
     mean_sentence_length,
     sentence_counts_by_section,
 )
+from src.analytics.indication_extractor import IndicationExtractor, load_indication_config
 from src.ingestion.europe_pmc_client import EuropePMCClient, EuropePMCQuery
 from src.storage import (
     get_ingest_status,
@@ -31,6 +32,7 @@ from src.storage import (
     insert_co_mentions,
     insert_co_mentions_sentences,
     insert_mentions,
+    insert_sentence_indications,
     insert_sentences,
     update_ingest_status,
     upsert_document,
@@ -43,6 +45,7 @@ from src.utils.identifiers import build_sentence_id
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 STUDY_WEIGHT_CONFIG = ROOT / "config" / "study_type_weights.json"
+INDICATION_CONFIG = ROOT / "config" / "indications.json"
 
 
 def _slug(text: str) -> str:
@@ -161,6 +164,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to product dictionary JSON for deterministic mention extraction.",
     )
     parser.add_argument(
+        "--indication-config",
+        type=Path,
+        default=INDICATION_CONFIG,
+        help="Path to indication dictionary JSON for deterministic indication extraction.",
+    )
+    parser.add_argument(
         "--study-weight-config",
         type=Path,
         default=STUDY_WEIGHT_CONFIG,
@@ -228,6 +237,20 @@ def run_ingestion(
     elif db_path:
         print(
             f"No product config found at {product_config}; skipping mention extraction while still writing documents to DB."
+        )
+
+    indication_config: Path | None = getattr(args, "indication_config", None)
+    indication_extractor: IndicationExtractor | None = None
+    if indication_config and indication_config.exists():
+        indication_dict = load_indication_config(indication_config)
+        if indication_dict:
+            indication_extractor = IndicationExtractor(indication_dict)
+            print(
+                f"Loaded {len(indication_dict)} indications from {indication_config} for indication extraction."
+            )
+    elif indication_config:
+        print(
+            f"Indication config not found at {indication_config}; skipping indication extraction."
         )
 
     study_weight_config: Path | None = getattr(args, "study_weight_config", None)
@@ -375,10 +398,10 @@ def run_ingestion(
 
     documents = []
     with structured_path.open("w", encoding="utf-8") as f:
-    for record in normalized_results:
-        doc = splitter.split_document(record)
-        documents.append(doc)
-        f.write(json.dumps(doc.to_dict()) + "\n")
+        for record in normalized_results:
+            doc = splitter.split_document(record)
+            documents.append(doc)
+            f.write(json.dumps(doc.to_dict()) + "\n")
 
             if conn:
                 upsert_document(conn, doc, raw_json=record.raw)
@@ -392,6 +415,7 @@ def run_ingestion(
 
                 sentence_rows = []
                 mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []
+                indication_batches: list[tuple[str, list[tuple[str, str, int, int]]]] = []
                 sentence_co_mentions: list[tuple[str, str, str, int]] = []
                 doc_mentions: list[ProductMention] = []
                 max_sentences = getattr(args, "max_sentences_per_doc", 0) or 0
@@ -437,11 +461,29 @@ def run_ingestion(
                                 for m in mentions
                             ]
                             mention_batches.append((sentence_id, mention_rows))
+                    if indication_extractor:
+                        indications = indication_extractor.extract(sentence.text)
+                        if indications:
+                            indication_rows = [
+                                (
+                                    indication.indication_canonical,
+                                    indication.alias_matched,
+                                    indication.start_char,
+                                    indication.end_char,
+                                )
+                                for indication in indications
+                            ]
+                            indication_batches.append((sentence_id, indication_rows))
 
                 if sentence_rows:
                     insert_sentences(conn, doc.doc_id, sentence_rows)
                 for sentence_id, mention_rows in mention_batches:
                     insert_mentions(conn, doc.doc_id, sentence_id, mention_rows)
+                if indication_extractor:
+                    for sentence_id, indication_rows in indication_batches:
+                        insert_sentence_indications(
+                            conn, doc.doc_id, sentence_id, indication_rows
+                        )
                 if mention_extractor and sentence_co_mentions:
                     insert_co_mentions_sentences(conn, doc.doc_id, sentence_co_mentions)
                 if mention_extractor and doc_mentions:

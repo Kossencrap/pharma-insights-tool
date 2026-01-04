@@ -1,10 +1,23 @@
-"""Annotate sentence-level co-mentions with lightweight context labels."""
+﻿"""Annotate sentence-level co-mentions with lightweight context labels."""
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 from typing import List, Tuple
+
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# --- AUTO: ensure repo root on sys.path (PowerShell patch) ---
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# --- END AUTO ---
 
 from src.analytics.context_labels import classify_sentence_context, labels_to_columns
 from src.storage import init_db, insert_sentence_events

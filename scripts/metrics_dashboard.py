@@ -1,4 +1,4 @@
-"""Streamlit dashboard for aggregated pharma insight metrics."""
+﻿"""Streamlit dashboard for aggregated pharma insight metrics."""
 
 from __future__ import annotations
 
@@ -6,6 +6,19 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Iterable, Optional
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# --- AUTO: ensure repo root on sys.path (PowerShell patch) ---
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# --- END AUTO ---
 
 from src.analytics import explain_confidence, fetch_sentence_evidence
 from src.analytics.weights import load_study_type_weights
@@ -146,11 +159,11 @@ def _render_evidence(
                     aliases = []
                     if record.get("product_a_alias"):
                         aliases.append(
-                            f"{record['product_a_alias']} → {record['product_a']}"
+                            f"{record['product_a_alias']} â†’ {record['product_a']}"
                         )
                     if record.get("product_b_alias"):
                         aliases.append(
-                            f"{record['product_b_alias']} → {record['product_b']}"
+                            f"{record['product_b_alias']} â†’ {record['product_b']}"
                         )
                     if aliases:
                         st.caption("Aliases matched: " + ", ".join(aliases))

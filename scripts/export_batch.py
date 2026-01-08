@@ -152,13 +152,21 @@ def _export_query(con: sqlite3.Connection, query: str, base_name: str, outdir: P
     return {"csv": str(csv_path), "parquet": str(parquet_path), "rows": len(rows)}
 
 
-def _aggregate_frames(con: sqlite3.Connection, freqs: Sequence[str]) -> Dict[str, Dict[str, List[dict]]]:
+def _aggregate_frames(
+    con: sqlite3.Connection,
+    freqs: Sequence[str],
+    *,
+    change_config: aggregator.NarrativeChangeConfig | None = None,
+) -> Dict[str, Dict[str, List[dict]]]:
     aggregates: Dict[str, Dict[str, List[dict]]] = {
         "documents": {},
         "mentions": {},
         "co_mentions": {},
         "co_mentions_weighted": {},
+        "narratives": {},
+        "narratives_change": {},
     }
+    config = change_config or aggregator.NarrativeChangeConfig()
     for freq in freqs:
         aggregates["documents"][freq] = aggregator._aggregate_documents(con, freq)
         aggregates["mentions"][freq] = aggregator._aggregate_mentions(con, freq)
@@ -166,6 +174,9 @@ def _aggregate_frames(con: sqlite3.Connection, freqs: Sequence[str]) -> Dict[str
         aggregates["co_mentions_weighted"][freq] = aggregator._aggregate_weighted_co_mentions(
             con, freq
         )
+        narrative_rows, change_rows = aggregator._aggregate_narratives(con, freq, config)
+        aggregates["narratives"][freq] = narrative_rows
+        aggregates["narratives_change"][freq] = change_rows
     return aggregates
 
 

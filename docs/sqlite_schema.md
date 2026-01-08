@@ -39,6 +39,14 @@ Key columns:
 - `doc_id` + `sentence_id` + positional keys
 - `product_canonical`, `alias_matched`, `match_method`
 
+### `sentence_indications`
+Deterministic indication/use-case mentions detected per sentence. Populated
+during ingestion via `IndicationExtractor.extract`.
+
+Key columns:
+- `doc_id`, `sentence_id`
+- `indication_canonical`, `alias_matched`, `start_char`, `end_char`
+
 ### `co_mentions`
 Document-level product pairs. Populated during ingestion when a document
 contains multiple products.
@@ -64,6 +72,8 @@ Key columns:
 - `doc_id`, `sentence_id`, `product_a`, `product_b` (composite primary key)
 - Label columns: `comparative_terms`, `relationship_types`, `risk_terms`,
   `study_context`, `matched_terms`
+- Narrative columns: `narrative_type`, `narrative_subtype`,
+  `narrative_confidence`
 - Sentiment: `sentiment_label`, `sentiment_score`, `sentiment_model`,
   `sentiment_inference_ts`
 

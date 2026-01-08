@@ -1,3 +1,5 @@
+import json
+
 from src.analytics.context_labels import classify_sentence_context, labels_to_columns
 
 
@@ -47,8 +49,11 @@ def test_matched_terms_serialization_includes_new_keys():
     sentence = "The phase 3 study reported improved overall survival and fewer adverse events."
 
     labels = classify_sentence_context(sentence)
-    _, _, _, _, matched = labels_to_columns(labels)
+    _, _, _, _, matched, triggers = labels_to_columns(labels)
 
     assert matched is not None
     assert "endpoint_terms" in matched
     assert "trial_phase_terms" in matched
+    assert triggers is not None
+    trigger_list = json.loads(triggers)
+    assert "study_context" in trigger_list

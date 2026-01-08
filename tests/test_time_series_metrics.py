@@ -6,6 +6,7 @@ from src.analytics.time_series import (
     TimeSeriesConfig,
     add_change_metrics,
     bucket_counts,
+    compute_change_status,
     sentiment_bucket_counts,
 )
 
@@ -85,3 +86,64 @@ def test_sentiment_bucket_counts_include_ratios():
     ratios = {row["sentiment_label"]: row["ratio"] for row in agg}
     assert ratios["POS"] == 2 / 3
     assert ratios["NEG"] == 1 / 3
+
+
+def test_compute_change_status_flags_new_and_disappearing():
+    start = datetime(2024, 4, 1, tzinfo=timezone.utc)
+
+    def bucket(idx: int) -> datetime:
+        return start + timedelta(weeks=idx)
+
+    agg_rows = [
+        {
+            "narrative_type": "safety",
+            "narrative_subtype": "risk",
+            "bucket_start": bucket(0),
+            "count": 0,
+        },
+        {
+            "narrative_type": "safety",
+            "narrative_subtype": "risk",
+            "bucket_start": bucket(1),
+            "count": 0,
+        },
+        {
+            "narrative_type": "safety",
+            "narrative_subtype": "risk",
+            "bucket_start": bucket(2),
+            "count": 6,
+        },
+        {
+            "narrative_type": "positioning",
+            "narrative_subtype": "combination",
+            "bucket_start": bucket(0),
+            "count": 6,
+        },
+        {
+            "narrative_type": "positioning",
+            "narrative_subtype": "combination",
+            "bucket_start": bucket(1),
+            "count": 4,
+        },
+        {
+            "narrative_type": "positioning",
+            "narrative_subtype": "combination",
+            "bucket_start": bucket(2),
+            "count": 0,
+        },
+    ]
+
+    changes = compute_change_status(
+        agg_rows,
+        group_columns=["narrative_type", "narrative_subtype"],
+        lookback=2,
+        min_ratio=0.4,
+        min_count=2,
+    )
+
+    safety = next(row for row in changes if row["narrative_type"] == "safety")
+    positioning = next(row for row in changes if row["narrative_type"] == "positioning")
+
+    assert safety["status"] == "new"
+    assert positioning["status"] == "disappearing"
+    assert positioning["delta_count"] == -5.0

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from src.storage import init_db
 
-from scripts import query_comentions, show_sentence_evidence
+from scripts import aggregate_metrics, query_comentions, show_sentence_evidence
 
 
 def _seed_cli_db(db_path: Path) -> None:
@@ -140,3 +140,47 @@ def test_show_sentence_evidence_cli_outputs_sentences(tmp_path, capsys, monkeypa
     output = capsys.readouterr().out
     assert "ProductA vs ProductB" in output
     assert "Weights:" in output
+
+
+def test_aggregate_metrics_cli_emits_narrative_change(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "metrics.sqlite"
+    _seed_cli_db(db_path)
+
+    outdir = tmp_path / "metrics"
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "aggregate_metrics.py",
+            "--db",
+            str(db_path),
+            "--outdir",
+            str(outdir),
+            "--freq",
+            "W",
+            "--change-lookback",
+            "2",
+            "--change-min-ratio",
+            "0.4",
+            "--change-min-count",
+            "1"
+        ],
+    )
+
+    aggregate_metrics.main()
+
+    change_file = outdir / "narratives_change_w.parquet"
+    assert change_file.exists()
+
+    try:
+        import pandas as pd  # type: ignore
+
+        df = pd.read_parquet(change_file)
+        if not df.empty:
+            assert "status" in df.columns
+    except Exception:
+        # When pandas/pyarrow are unavailable, the file is JSON; just ensure it has content.
+        payload = change_file.read_text(encoding="utf-8")
+        assert payload.strip()

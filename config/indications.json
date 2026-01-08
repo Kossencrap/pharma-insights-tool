@@ -1,0 +1,22 @@
+{
+  "type 2 diabetes": [
+    "type 2 diabetes",
+    "t2d",
+    "adult-onset diabetes"
+  ],
+  "obesity": [
+    "obesity",
+    "obese",
+    "weight management"
+  ],
+  "cardiovascular disease": [
+    "cardiovascular disease",
+    "cardiovascular safety",
+    "cv risk"
+  ],
+  "chronic kidney disease": [
+    "chronic kidney disease",
+    "ckd",
+    "kidney disease"
+  ]
+}

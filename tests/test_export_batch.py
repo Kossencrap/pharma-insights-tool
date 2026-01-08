@@ -50,7 +50,13 @@ def _seed_db(db_path: Path) -> None:
         ("doc-1", "sent-1", "product-a", "product-b", 1),
     )
     con.execute(
-        "INSERT INTO sentence_events (doc_id, sentence_id, product_a, product_b, comparative_terms, relationship_types, risk_terms, study_context, matched_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        """
+        INSERT INTO sentence_events (
+            doc_id, sentence_id, product_a, product_b,
+            comparative_terms, relationship_types, risk_terms, study_context, matched_terms,
+            narrative_type, narrative_subtype, narrative_confidence
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
         (
             "doc-1",
             "sent-1",
@@ -61,6 +67,9 @@ def _seed_db(db_path: Path) -> None:
             "risk",
             "trial",
             "drug pair",
+            "safety",
+            "risk_signal",
+            0.8,
         ),
     )
     con.commit()
@@ -105,12 +114,14 @@ def test_export_creates_outputs_and_prunes_old_runs(tmp_path: Path) -> None:
     documents_csv = aggregates_dir / f"documents_w_{run_slug}.csv"
     mentions_csv = raw_dir / "product_mentions.csv"
     weighted_comentions_csv = aggregates_dir / f"co_mentions_weighted_w_{run_slug}.csv"
+    narratives_csv = aggregates_dir / f"narratives_w_{run_slug}.csv"
     evidence_csv = evidence_dir / f"sentence_evidence_{run_slug}.csv"
     evidence_jsonl = evidence_dir / f"sentence_evidence_{run_slug}.jsonl"
 
     assert documents_csv.exists()
     assert mentions_csv.exists()
     assert weighted_comentions_csv.exists()
+    assert narratives_csv.exists()
     assert evidence_csv.exists()
     assert evidence_jsonl.exists()
 
@@ -118,6 +129,9 @@ def test_export_creates_outputs_and_prunes_old_runs(tmp_path: Path) -> None:
         header = f.readline().strip()
     assert "bucket_start" in header
     assert "count" in header
+    with narratives_csv.open("r", encoding="utf-8") as f:
+        narrative_header = f.readline().strip()
+    assert "narrative_type" in narrative_header
 
     with mentions_csv.open("r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -137,6 +151,9 @@ def test_export_creates_outputs_and_prunes_old_runs(tmp_path: Path) -> None:
     assert any(check["consistent"] for check in saved_manifest["consistency"])
     assert saved_manifest.get("evidence_export", {}).get("rows") >= 1
     assert "jsonl" in saved_manifest.get("evidence_export", {})
+    narrative_manifest = saved_manifest["aggregate_exports"]["narratives"]["W"]
+    assert narrative_manifest["rows"] >= 1
+    assert narrative_manifest["csv"].endswith(f"narratives_w_{run_slug}.csv")
 
     assert not old_run.exists()
     assert not old_file.exists()

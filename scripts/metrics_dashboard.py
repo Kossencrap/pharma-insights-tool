@@ -101,6 +101,24 @@ def _partner_options(co_mentions_frame, product: str) -> list[str]:
     return sorted({p for p in partners if p})
 
 
+def _unique_values(frame, column: str) -> list[str]:
+    if frame is None:
+        return []
+    if hasattr(frame, "columns") and column in frame.columns:
+        series = frame[column].dropna()
+        return sorted(series.astype(str).unique().tolist())
+    rows = frame or []
+    return sorted({str(row.get(column)) for row in rows if row.get(column)})
+
+
+def _has_column(frame, column: str) -> bool:
+    if frame is None:
+        return False
+    if hasattr(frame, "columns"):
+        return column in frame.columns
+    return any(column in row for row in frame or [])
+
+
 def _render_evidence(
     st,
     *,
@@ -110,6 +128,8 @@ def _render_evidence(
     header: str,
     limit: int = 50,
     study_weight_lookup: Optional[dict] = None,
+    narrative_type: Optional[str] = None,
+    narrative_subtype: Optional[str] = None,
 ) -> None:
     with st.expander(header):
         if st.button("Load evidence", key=f"evidence-{header}"):
@@ -121,6 +141,8 @@ def _render_evidence(
                 conn,
                 product_a=product_a,
                 product_b=product_b,
+                narrative_type=narrative_type,
+                narrative_subtype=narrative_subtype,
                 limit=limit,
             )
             if not evidence:
@@ -154,8 +176,33 @@ def _render_evidence(
                         )
                     if aliases:
                         st.caption("Aliases matched: " + ", ".join(aliases))
+                    indications = record.get("indications") or []
+                    if indications:
+                        st.caption("Indications: " + ", ".join(indications))
                     if record.get("matched_terms"):
                         st.caption(f"Matched terms: {record['matched_terms']}")
+                    context_rules = record.get("context_rule_hits") or []
+                    if context_rules:
+                        if isinstance(context_rules, str):
+                            try:
+                                parsed_rules = json.loads(context_rules)
+                                if isinstance(parsed_rules, list):
+                                    context_rules = parsed_rules
+                            except Exception:
+                                pass
+                        if isinstance(context_rules, list):
+                            st.caption(
+                                "Context rules: " + ", ".join(str(rule) for rule in context_rules)
+                            )
+                        else:
+                            st.caption(f"Context rules: {context_rules}")
+                    if record.get("narrative_type"):
+                        narrative = record["narrative_type"]
+                        if record.get("narrative_subtype"):
+                            narrative += f" ({record['narrative_subtype']})"
+                        if record.get("narrative_confidence") is not None:
+                            narrative += f" | conf={record['narrative_confidence']:.2f}"
+                        st.caption(f"Narrative: {narrative}")
                     if study_weight_lookup:
                         st.json(
                             explain_confidence(row, study_weight_lookup),
@@ -224,6 +271,99 @@ def _with_partner_column(frame, product: str):
     return updated_rows
 
 
+def _filter_narratives_by_type(frame, narrative_type: str | None, narrative_subtype: str | None):
+    if frame is None:
+        return frame
+    if hasattr(frame, "loc"):
+        filtered = frame
+        if narrative_type and "narrative_type" in frame.columns:
+            filtered = filtered.loc[
+                filtered["narrative_type"].str.lower() == narrative_type.lower()
+            ]
+        if narrative_subtype and "narrative_subtype" in filtered.columns:
+            filtered = filtered.loc[
+                filtered["narrative_subtype"].str.lower() == narrative_subtype.lower()
+            ]
+        return filtered
+    rows = frame or []
+    if narrative_type:
+        rows = [
+            row for row in rows if str(row.get("narrative_type", "")).lower() == narrative_type.lower()
+        ]
+    if narrative_subtype:
+        rows = [
+            row for row in rows if str(row.get("narrative_subtype", "")).lower() == narrative_subtype.lower()
+        ]
+    return rows
+
+
+def _filter_change_by_status(frame, status: str | None):
+    if frame is None or not status:
+        return frame
+    status_lower = status.lower()
+    if hasattr(frame, "loc"):
+        if "status" not in frame.columns:
+            return frame
+        return frame.loc[frame["status"].str.lower() == status_lower]
+    rows = frame or []
+    return [row for row in rows if str(row.get("status", "")).lower() == status_lower]
+
+
+def _render_change_table(st, frame):
+    columns = [
+        "narrative_type",
+        "narrative_subtype",
+        "bucket_start",
+        "status",
+        "count",
+        "reference_avg",
+        "delta_count",
+        "delta_ratio",
+    ]
+    if frame is None:
+        st.info("No narrative change rows for the selected filters.")
+        return
+    if hasattr(frame, "loc"):
+        available = [col for col in columns if col in frame.columns]
+        if not available:
+            st.dataframe(frame)
+        else:
+            st.dataframe(frame[available])
+    else:
+        rows = frame or []
+        if not rows:
+            st.info("No narrative change rows for the selected filters.")
+            return
+        display = [
+            {col: row.get(col) for col in columns if col in row}
+            for row in rows
+        ]
+        st.table(display)
+
+
+def _extract_change_thresholds(frame):
+    if frame is None:
+        return None
+    if hasattr(frame, "head"):
+        if frame.empty:
+            return None
+        row = frame.iloc[0]
+        return {
+            "lookback": int(row.get("lookback_used") or 0),
+            "min_ratio": row.get("min_ratio"),
+            "min_count": row.get("min_count"),
+        }
+    rows = frame or []
+    if not rows:
+        return None
+    row = rows[0]
+    return {
+        "lookback": int(row.get("lookback_used") or 0),
+        "min_ratio": row.get("min_ratio"),
+        "min_count": row.get("min_count"),
+    }
+
+
 def main() -> None:
     try:
         import streamlit as st
@@ -260,6 +400,12 @@ def main() -> None:
         )
         sentiment_frame = _ensure_datetime(
             _read_metrics(metrics_dir / f"sentiment_{freq}.parquet")
+        )
+        narratives_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"narratives_{freq}.parquet")
+        )
+        narrative_change_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"narratives_change_{freq}.parquet")
         )
     except RuntimeError as exc:
         st.error(str(exc))
@@ -352,6 +498,86 @@ def main() -> None:
         study_weight_lookup=study_weight_lookup,
     )
 
+    narrative_type_value = None
+    narrative_subtype_value = None
+
+    st.subheader("Narrative trend")
+    if narratives_frame is None or not _has_column(narratives_frame, "narrative_type"):
+        st.info(
+            "No narrative metrics available; re-run aggregate_metrics to generate narratives_*.parquet."
+        )
+    else:
+        narrative_types = ["(all)"] + _unique_values(narratives_frame, "narrative_type")
+        narrative_type_filter = st.sidebar.selectbox(
+            "Narrative type", options=narrative_types
+        )
+        narrative_type_value = (
+            None if narrative_type_filter == "(all)" else narrative_type_filter
+        )
+        narrative_subtypes = ["(all)"] + _unique_values(
+            narratives_frame, "narrative_subtype"
+        )
+        narrative_subtype_filter = st.sidebar.selectbox(
+            "Narrative subtype", options=narrative_subtypes
+        )
+        narrative_subtype_value = (
+            None if narrative_subtype_filter == "(all)" else narrative_subtype_filter
+        )
+        narratives_filtered = _filter_narratives_by_type(
+            narratives_frame, narrative_type_value, narrative_subtype_value
+        )
+        _render_chart(
+            st,
+            narratives_filtered,
+            "Narrative trend",
+            group="narrative_subtype" if narrative_type_value else "narrative_type",
+        )
+        _render_evidence(
+            st,
+            db_path=db_path,
+            product_a=product_filter,
+            product_b=partner_filter,
+            header="Evidence for narrative trend",
+            study_weight_lookup=study_weight_lookup,
+            narrative_type=narrative_type_value,
+            narrative_subtype=narrative_subtype_value,
+        )
+
+    st.subheader("Narrative change since last review")
+    if narrative_change_frame is None or not _has_column(narrative_change_frame, "status"):
+        st.info(
+            "No narrative change metrics available; re-run aggregate_metrics to generate narratives_change_*.parquet."
+        )
+    else:
+        change_status_options = ["(all)"] + _unique_values(narrative_change_frame, "status")
+        change_status_filter = st.sidebar.selectbox(
+            "Narrative change status", options=change_status_options
+        )
+        change_status_value = (
+            None if change_status_filter == "(all)" else change_status_filter
+        )
+        changes_filtered = _filter_narratives_by_type(
+            narrative_change_frame, narrative_type_value, narrative_subtype_value
+        )
+        changes_filtered = _filter_change_by_status(changes_filtered, change_status_value)
+        _render_change_table(st, changes_filtered)
+        thresholds = _extract_change_thresholds(changes_filtered)
+        if thresholds:
+            st.caption(
+                f"Status compares the latest bucket to the average of the previous {thresholds['lookback']} buckets "
+                f"(min ratio {thresholds['min_ratio']}, min delta {thresholds['min_count']})."
+            )
+        _render_evidence(
+            st,
+            db_path=db_path,
+            product_a=product_filter,
+            product_b=partner_filter,
+            header="Evidence for narrative changes",
+            study_weight_lookup=study_weight_lookup,
+            narrative_type=narrative_type_value,
+            narrative_subtype=narrative_subtype_value,
+        )
+
     st.subheader("Sentiment ratios")
     sentiment_filtered = sentiment_frame
     if product_filter and hasattr(sentiment_frame, "loc"):
@@ -383,3 +609,27 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+def _filter_narratives_by_type(frame, narrative_type: str | None, narrative_subtype: str | None):
+    if frame is None:
+        return frame
+    if hasattr(frame, "loc"):
+        filtered = frame
+        if narrative_type and "narrative_type" in frame.columns:
+            filtered = filtered.loc[
+                filtered["narrative_type"].str.lower() == narrative_type.lower()
+            ]
+        if narrative_subtype and "narrative_subtype" in filtered.columns:
+            filtered = filtered.loc[
+                filtered["narrative_subtype"].str.lower() == narrative_subtype.lower()
+            ]
+        return filtered
+    rows = frame or []
+    if narrative_type:
+        rows = [
+            row for row in rows if str(row.get("narrative_type", "")).lower() == narrative_type.lower()
+        ]
+    if narrative_subtype:
+        rows = [
+            row for row in rows if str(row.get("narrative_subtype", "")).lower() == narrative_subtype.lower()
+        ]
+    return rows

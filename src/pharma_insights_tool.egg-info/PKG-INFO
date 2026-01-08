@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: pharma-insights-tool
+Version: 0.1.0
+Summary: Product-centric literature intelligence for pharma
+Requires-Python: >=3.10
+Requires-Dist: requests
+Requires-Dist: pydantic
+Requires-Dist: python-dotenv
+Requires-Dist: spacy
+Requires-Dist: scispacy
+Dynamic: requires-python

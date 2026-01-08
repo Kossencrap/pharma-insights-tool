@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from typing import List, Mapping, Optional, Sequence
@@ -33,10 +34,15 @@ class SentenceEvidence:
     combined_weight: Optional[float]
     labels: List[str]
     matched_terms: Optional[str]
-    sentiment_label: Optional[str]
-    sentiment_score: Optional[float]
-    sentiment_model: Optional[str]
-    sentiment_inference_ts: Optional[str]
+    context_rule_hits: tuple[str, ...] = ()
+    indications: tuple[str, ...] = ()
+    narrative_type: Optional[str] = None
+    narrative_subtype: Optional[str] = None
+    narrative_confidence: Optional[float] = None
+    sentiment_label: Optional[str] = None
+    sentiment_score: Optional[float] = None
+    sentiment_model: Optional[str] = None
+    sentiment_inference_ts: Optional[str] = None
 
     @property
     def evidence_weight(self) -> float:
@@ -86,6 +92,11 @@ class SentenceEvidence:
             "evidence_weight": self.evidence_weight,
             "labels": self.labels,
             "matched_terms": self.matched_terms,
+            "context_rule_hits": list(self.context_rule_hits),
+            "indications": list(self.indications),
+            "narrative_type": self.narrative_type,
+            "narrative_subtype": self.narrative_subtype,
+            "narrative_confidence": self.narrative_confidence,
             "sentiment_label": self.sentiment_label,
             "sentiment_score": self.sentiment_score,
             "sentiment_model": self.sentiment_model,
@@ -106,6 +117,8 @@ def fetch_sentence_evidence(
     product_a: Optional[str] = None,
     product_b: Optional[str] = None,
     pub_after: Optional[str] = None,
+    narrative_type: Optional[str] = None,
+    narrative_subtype: Optional[str] = None,
     limit: int = 200,
 ) -> List[SentenceEvidence]:
     columns = {
@@ -123,6 +136,33 @@ def fetch_sentence_evidence(
     sentiment_ts_expr = (
         "se.sentiment_inference_ts"
         if "sentiment_inference_ts" in columns
+        else "NULL"
+    )
+    narrative_type_expr = (
+        "se.narrative_type" if "narrative_type" in columns else "NULL"
+    )
+    narrative_subtype_expr = (
+        "se.narrative_subtype" if "narrative_subtype" in columns else "NULL"
+    )
+    narrative_conf_expr = (
+        "se.narrative_confidence" if "narrative_confidence" in columns else "NULL"
+    )
+    has_indications = (
+        conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='sentence_indications'"
+        ).fetchone()
+        is not None
+    )
+    indication_expr = (
+        """
+        (
+            SELECT GROUP_CONCAT(si.indication_canonical, '|')
+            FROM sentence_indications si
+            WHERE si.doc_id = cms.doc_id
+              AND si.sentence_id = cms.sentence_id
+        )
+        """
+        if has_indications
         else "NULL"
     )
     query = [
@@ -162,8 +202,13 @@ def fetch_sentence_evidence(
                se.comparative_terms,
                se.relationship_types,
                se.risk_terms,
-               se.study_context,
-               se.matched_terms,
+        se.study_context,
+        se.matched_terms,
+        se.context_rule_hits,
+        {indication_expr} AS indications,
+               {narrative_type_expr},
+               {narrative_subtype_expr},
+               {narrative_conf_expr},
                {sentiment_label_expr},
                {sentiment_score_expr},
                {sentiment_model_expr},
@@ -193,6 +238,12 @@ def fetch_sentence_evidence(
     if pub_after:
         query.append("AND d.publication_date >= ?")
         params.append(pub_after)
+    if narrative_type:
+        query.append("AND se.narrative_type = ?")
+        params.append(narrative_type)
+    if narrative_subtype:
+        query.append("AND se.narrative_subtype = ?")
+        params.append(narrative_subtype)
 
     query.append("ORDER BY d.publication_date DESC, cms.doc_id, cms.sentence_id LIMIT ?")
     params.append(limit)
@@ -200,40 +251,106 @@ def fetch_sentence_evidence(
     cur = conn.execute("\n".join(query), params)
     rows: List[SentenceEvidence] = []
     for row in cur.fetchall():
+        (
+            doc_id,
+            sentence_id,
+            product_a,
+            product_a_alias,
+            product_b,
+            product_b_alias,
+            count,
+            sentence_text,
+            section,
+            sent_index,
+            publication_date,
+            journal,
+            recency_weight,
+            study_type,
+            study_type_weight,
+            combined_weight,
+            comparative_terms,
+            relationship_types,
+            risk_terms,
+            study_context,
+            matched_terms,
+            context_rule_hits_raw,
+            indication_list,
+            narrative_type_val,
+            narrative_subtype_val,
+            narrative_confidence_val,
+            sentiment_label_val,
+            sentiment_score_val,
+            sentiment_model_val,
+            sentiment_ts_val,
+        ) = row
+
         labels: list[str] = []
         seen: set[str] = set()
-        for idx in range(16, 20):
-            for label in _split_labels(row[idx]):
+        for value in (
+            comparative_terms,
+            relationship_types,
+            risk_terms,
+            study_context,
+        ):
+            for label in _split_labels(value):
                 key = label.lower()
                 if key in seen:
                     continue
                 seen.add(key)
                 labels.append(label)
 
+        indications = tuple(
+            sorted(
+                {
+                    item.strip()
+                    for item in (indication_list or "").split("|")
+                    if item and item.strip()
+                }
+            )
+        )
+
+        context_rules: tuple[str, ...] = ()
+        if context_rule_hits_raw:
+            try:
+                parsed_rules = json.loads(context_rule_hits_raw)
+                if isinstance(parsed_rules, list):
+                    context_rules = tuple(str(rule) for rule in parsed_rules)
+            except json.JSONDecodeError:
+                context_rules = tuple(
+                    item.strip()
+                    for item in (context_rule_hits_raw or "").split(",")
+                    if item.strip()
+                )
+
         rows.append(
             SentenceEvidence(
-                doc_id=row[0],
-                sentence_id=row[1],
-                product_a=row[2],
-                product_a_alias=row[3],
-                product_b=row[4],
-                product_b_alias=row[5],
-                count=int(row[6] or 0),
-                sentence_text=row[7],
-                section=row[8],
-                sent_index=row[9],
-                publication_date=row[10],
-                journal=row[11],
-                recency_weight=row[12],
-                study_type=row[13],
-                study_type_weight=row[14],
-                combined_weight=row[15],
+                doc_id=doc_id,
+                sentence_id=sentence_id,
+                product_a=product_a,
+                product_a_alias=product_a_alias,
+                product_b=product_b,
+                product_b_alias=product_b_alias,
+                count=int(count or 0),
+                sentence_text=sentence_text,
+                section=section,
+                sent_index=sent_index,
+                publication_date=publication_date,
+                journal=journal,
+                recency_weight=recency_weight,
+                study_type=study_type,
+                study_type_weight=study_type_weight,
+                combined_weight=combined_weight,
                 labels=labels,
-                matched_terms=row[20],
-                sentiment_label=row[21],
-                sentiment_score=row[22],
-                sentiment_model=row[23],
-                sentiment_inference_ts=row[24],
+                matched_terms=matched_terms,
+                context_rule_hits=context_rules,
+                indications=indications,
+                narrative_type=narrative_type_val,
+                narrative_subtype=narrative_subtype_val,
+                narrative_confidence=narrative_confidence_val,
+                sentiment_label=sentiment_label_val,
+                sentiment_score=sentiment_score_val,
+                sentiment_model=sentiment_model_val,
+                sentiment_inference_ts=sentiment_ts_val,
             )
         )
 

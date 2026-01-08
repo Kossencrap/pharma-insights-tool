@@ -2,7 +2,7 @@ import pathlib
 import sys
 import warnings
 from dataclasses import dataclass
-from typing import List
+from typing import Any, List
 
 import pytest
 
@@ -38,7 +38,7 @@ def execution_log(pytestconfig: pytest.Config) -> ExecutionLog:
 
 
 def pytest_terminal_summary(
-    terminalreporter: pytest.TerminalReporter, exitstatus: int
+    terminalreporter: Any, exitstatus: int
 ) -> None:  # type: ignore[override]
     log: ExecutionLog | None = getattr(terminalreporter.config, "execution_log", None)
     if not log or not log.entries:

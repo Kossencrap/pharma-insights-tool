@@ -2,7 +2,7 @@
 param(
     [string]$PythonExe = "py",
     [string]$DataRoot = "data/powershell-checks",
-    [string[]]$Products = @("dupilumab", "Dupixent"),
+    [string[]]$Products = @("enalapril", "sacubitril_valsartan"),
     [int]$MaxRecords = 25,
     [switch]$SkipPytests,
     [switch]$SkipNetworkSteps,
@@ -16,6 +16,34 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $ProductConfigPath = Join-Path $RepoRoot "config/products.json"
 $StudyWeightConfigPath = Join-Path $RepoRoot "config/study_type_weights.json"
+$env:PYTHONPATH = if ($env:PYTHONPATH) { "$RepoRoot;$($env:PYTHONPATH)" } else { "$RepoRoot" }
+$script:ProductAliasLookup = @{}
+
+if (Test-Path $ProductConfigPath) {
+    $productConfigRaw = Get-Content -Raw $ProductConfigPath | ConvertFrom-Json
+    foreach ($entry in $productConfigRaw.PSObject.Properties) {
+        $values = @($entry.Value)
+        if (-not ($values -contains $entry.Name)) {
+            $values += $entry.Name
+        }
+        $deduped = New-Object System.Collections.Generic.List[string]
+        $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+        foreach ($alias in $values) {
+            $text = [string]$alias
+            if ([string]::IsNullOrWhiteSpace($text)) {
+                continue
+            }
+            $clean = $text.Trim()
+            $key = $clean.ToLower()
+            if ($seen.Contains($key)) {
+                continue
+            }
+            $seen.Add($key) | Out-Null
+            $deduped.Add($clean) | Out-Null
+        }
+        $script:ProductAliasLookup[$entry.Name.ToLower()] = $deduped.ToArray()
+    }
+}
 
 function Write-Heading {
     param([string]$Message)
@@ -44,6 +72,38 @@ function Ensure-Directory {
     }
 }
 
+function Get-ProductSearchTerms {
+    param([string[]]$CanonicalProducts)
+
+    $terms = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+
+    foreach ($product in $CanonicalProducts) {
+        $candidates = New-Object System.Collections.Generic.List[string]
+        $candidates.Add($product) | Out-Null
+        $key = $product.ToLower()
+        if ($script:ProductAliasLookup.ContainsKey($key)) {
+            foreach ($alias in $script:ProductAliasLookup[$key]) {
+                $candidates.Add($alias) | Out-Null
+            }
+        }
+        foreach ($candidate in $candidates) {
+            if ([string]::IsNullOrWhiteSpace($candidate)) {
+                continue
+            }
+            $clean = $candidate.Trim()
+            $norm = $clean.ToLower()
+            if ($seen.Contains($norm)) {
+                continue
+            }
+            $seen.Add($norm) | Out-Null
+            $terms.Add($clean) | Out-Null
+        }
+    }
+
+    return $terms.ToArray()
+}
+
 function Show-ConfigSummary {
     param(
         [string[]]$ProductsToCheck,
@@ -55,15 +115,10 @@ function Show-ConfigSummary {
 
     if (Test-Path $ProductConfig) {
         Write-Host ("Product config: {0}" -f $ProductConfig) -ForegroundColor DarkGray
-        $productConfigJson = Get-Content -Raw $ProductConfig | ConvertFrom-Json
-        $productLookup = @{}
-        foreach ($entry in $productConfigJson.PSObject.Properties) {
-            $productLookup[$entry.Name.ToLower()] = $entry.Value
-        }
         foreach ($product in $ProductsToCheck) {
             $key = $product.ToLower()
-            if ($productLookup.ContainsKey($key)) {
-                $aliases = $productLookup[$key] -join ", "
+            if ($script:ProductAliasLookup.ContainsKey($key)) {
+                $aliases = $script:ProductAliasLookup[$key] -join ", "
                 Write-Host ("  {0}: {1}" -f $product, $aliases)
             } else {
                 Write-Host ("  {0}: NOT FOUND in product config" -f $product) -ForegroundColor Yellow
@@ -105,8 +160,9 @@ function Run-Ingestion {
     Ensure-Directory -Path $DataRoot
 
     $ingestArgs = @('scripts/ingest_europe_pmc.py')
-    foreach ($product in $Products) {
-        $ingestArgs += @('-p', $product)
+    $searchTerms = Get-ProductSearchTerms -CanonicalProducts $Products
+    foreach ($term in $searchTerms) {
+        $ingestArgs += @('-p', "`"$term`"")
     }
     $ingestArgs += @('--from-date', '2022-01-01', '--max-records', $MaxRecords, '--db', $dbPath, '--incremental')
 
@@ -130,26 +186,28 @@ function Run-LabelSentenceEvents {
         '--limit', '500',
         '--only-missing'
     )
+
+    $script:SentenceEventsForSentiment = Join-Path $DataRoot "sentence_events_for_sentiment.jsonl"
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        'scripts/export_sentence_events_jsonl.py',
+        '--db', $dbPath,
+        '--output', $script:SentenceEventsForSentiment
+    )
 }
 
 function Run-LabelSentenceSentiment {
     Write-Heading "Labeling sentence sentiment"
     $dbPath = Join-Path $DataRoot "europepmc.sqlite"
-    if (-not $script:StructuredJsonl) {
-        $prefix = ($Products[0]).ToLower() -replace '\s+', '_'
-        $script:StructuredJsonl = Join-Path "data/processed" ("{0}_structured.jsonl" -f $prefix)
+    if (-not $script:SentenceEventsForSentiment) {
+        $script:SentenceEventsForSentiment = Join-Path $DataRoot "sentence_events_for_sentiment.jsonl"
     }
-    if (-not (Test-Path $script:StructuredJsonl)) {
-        if ($SkipNetworkSteps) {
-            Write-Host ("Structured JSONL not found at {0}. Skipping sentiment labeling (SkipNetworkSteps set)." -f $script:StructuredJsonl) -ForegroundColor Yellow
-            return
-        }
-        Write-Host ("Structured JSONL not found at {0}. Ensure ingestion runs first." -f $script:StructuredJsonl) -ForegroundColor Yellow
+    if (-not (Test-Path $script:SentenceEventsForSentiment)) {
+        Write-Host ("Sentence events JSONL not found at {0}. Run Run-LabelSentenceEvents first." -f $script:SentenceEventsForSentiment) -ForegroundColor Yellow
         return
     }
     Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
         'scripts/label_sentence_sentiment.py',
-        '--input', $script:StructuredJsonl,
+        '--input', $script:SentenceEventsForSentiment,
         '--db', $dbPath
     )
 }
@@ -172,6 +230,7 @@ function Run-AggregateMetrics {
         '--change-min-ratio', '0.4',
         '--change-min-count', '3'
     )
+    Write-Host ("Directional metrics: {0}" -f (Join-Path $outDir "directional_w.parquet")) -ForegroundColor DarkGray
 }
 
 function Run-SentimentMetrics {
@@ -267,6 +326,103 @@ function Run-MetricsDashboard {
     & $PythonExe -m streamlit run scripts/metrics_dashboard.py
 }
 
+function Run-NarrativeKpiChecks {
+    param(
+        [string]$DataRoot
+    )
+
+    Write-Heading "Validating narrative KPI artifacts"
+    $scriptPath = Join-Path $RepoRoot "scripts/check_narrative_kpis.py"
+    if (-not (Test-Path -Path $scriptPath)) {
+        throw "KPI validation script not found at $scriptPath"
+    }
+
+    $dbPath = Join-Path $DataRoot "europepmc.sqlite"
+    $metricsDir = Join-Path $DataRoot "metrics"
+    Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
+        $scriptPath,
+        "--db", $dbPath,
+        "--data-root", $DataRoot,
+        "--metrics-dir", $metricsDir,
+        "--repo-root", $RepoRoot
+    )
+}
+
+function Assert-Phase2Metrics {
+    param(
+        [string]$DbPath,
+        [string]$MetricsDir
+    )
+
+    Write-Heading "Validating Phase 2 narrative/directional coverage"
+
+    if (-not (Test-Path -Path $DbPath)) {
+        throw "SQLite database not found at $DbPath. Run ingestion first."
+    }
+
+    $requiredFiles = @(
+        "narratives_w.parquet",
+        "narratives_change_w.parquet",
+        "directional_w.parquet",
+        "sentiment_w.parquet"
+    )
+
+    foreach ($name in $requiredFiles) {
+        $path = Join-Path $MetricsDir $name
+        if (-not (Test-Path -Path $path)) {
+            throw "Required metrics file missing: $path"
+        }
+        $fileInfo = Get-Item $path
+        if ($fileInfo.Length -le 0) {
+            throw "Metrics file is empty: $path"
+        }
+    }
+
+    $scriptContent = @"
+import json
+import sqlite3
+import sys
+
+db_path = sys.argv[1]
+conn = sqlite3.connect(db_path)
+queries = {
+    "narratives": "SELECT COUNT(*) FROM sentence_events WHERE narrative_type IS NOT NULL",
+    "directional": "SELECT COUNT(*) FROM sentence_events WHERE direction_type IS NOT NULL",
+    "sentiment": "SELECT COUNT(*) FROM sentence_events WHERE sentiment_label IS NOT NULL"
+}
+results = {}
+for key, sql in queries.items():
+    cur = conn.execute(sql)
+    value = cur.fetchone()[0]
+    results[key] = int(value or 0)
+conn.close()
+print(json.dumps(results))
+"@
+
+    $tempPath = Join-Path ([System.IO.Path]::GetTempPath()) ("phase2_metrics_{0}.py" -f ([System.Guid]::NewGuid().ToString("N")))
+    Set-Content -Path $tempPath -Value $scriptContent -Encoding UTF8
+    try {
+        $jsonOutput = & $PythonExe $tempPath $DbPath
+    } finally {
+        Remove-Item $tempPath -ErrorAction SilentlyContinue
+    }
+
+    $counts = $jsonOutput | ConvertFrom-Json
+    if ([int]$counts.narratives -le 0) {
+        throw "Narrative classification produced zero rows. Phase 2 outputs unavailable."
+    }
+    if ([int]$counts.directional -le 0) {
+        throw "Directional roles produced zero rows. Phase 2 competitive context missing."
+    }
+    if ([int]$counts.sentiment -le 0) {
+        throw "Sentiment labels not stored in SQLite; rerun scripts.label_sentence_sentiment."
+    }
+
+    Write-Host ("Narrative rows: {0}" -f $counts.narratives) -ForegroundColor DarkGreen
+    Write-Host ("Directional rows: {0}" -f $counts.directional) -ForegroundColor DarkGreen
+    Write-Host ("Sentiment rows: {0}" -f $counts.sentiment) -ForegroundColor DarkGreen
+}
+
 Write-Heading "Starting functional PowerShell checks"
 Write-Host "Python executable: $PythonExe" -ForegroundColor DarkGray
 Write-Host "Data root: $DataRoot" -ForegroundColor DarkGray
@@ -281,6 +437,10 @@ Run-LabelSentenceEvents
 Run-LabelSentenceSentiment
 Run-AggregateMetrics
 Run-SentimentMetrics
+$dbPath = Join-Path $DataRoot "europepmc.sqlite"
+$metricsDir = Join-Path $DataRoot "metrics"
+Assert-Phase2Metrics -DbPath $dbPath -MetricsDir $metricsDir
+Run-NarrativeKpiChecks -DataRoot $DataRoot
 Run-ExportBatch
 Run-Queries
 Run-StreamlitViewer
@@ -298,6 +458,8 @@ if ($script:StructuredJsonl) {
     Write-Host ("Structured JSONL: {0}" -f $script:StructuredJsonl)
 }
 Write-Host ("Metrics dir: {0}" -f $metricsDir)
+Write-Host ("Narrative metrics: {0}" -f (Join-Path $metricsDir "narratives_w.parquet"))
+Write-Host ("Directional metrics: {0}" -f (Join-Path $metricsDir "directional_w.parquet"))
 Write-Host ("Export root: {0}" -f $exportRoot)
 Write-Host "Key scripts run:"
 Write-Host "  - scripts/ingest_europe_pmc.py"

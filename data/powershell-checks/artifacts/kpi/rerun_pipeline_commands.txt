@@ -1,0 +1,9 @@
+py scripts\ingest_europe_pmc.py --db $DbPath --from-date 2022-01-01 --max-records 1000 --incremental -p enalapril -p sacubitril_valsartan
+py scripts\label_sentence_events.py --db $DbPath --limit 5000
+py scripts\export_sentence_events_jsonl.py --db $DbPath --output (Join-Path $DataRoot "sentence_events_for_sentiment.jsonl")
+py scripts\label_sentence_sentiment.py --db $DbPath --input (Join-Path $DataRoot "sentence_events_for_sentiment.jsonl")
+py scripts\aggregate_metrics.py --db $DbPath --outdir $MetricsDir --change-lookback 4 --change-min-ratio 0.4 --change-min-count 10
+py scripts\export_sentiment_metrics.py --db $DbPath --outdir $MetricsDir
+py scripts\export_batch.py --db $DbPath --export-root $ExportDir --freq W M --evidence-limit 500
+py scripts\export_label_precision_sample.py --db $DbPath --output (Join-Path $DataRoot "artifacts\kpi\narratives_label_kpi.csv") --allowed-sections results conclusion
+py scripts\check_narrative_kpis.py --data-root $DataRoot --metrics-dir $MetricsDir

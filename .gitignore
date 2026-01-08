@@ -5,3 +5,7 @@ data/raw/*
 data/processed/*
 data/artifacts/*
 !data/**/.gitkeep
+
+data/powershell-checks/
+
+data/powershell-checks/

@@ -63,3 +63,36 @@ def test_document_to_dict_serializes_sections_and_sentence_indices():
     assert as_dict["pmid"] == "12345"
     assert as_dict["publication_date"] is None
     assert as_dict["sections"][0]["sentences"][0]["index"] == 0
+
+
+def test_sentence_splitter_assigns_structured_abstract_sections():
+    record = _example_record()
+    record.abstract = (
+        "<h4>Aims</h4>This is the introduction sentence. Additional rationale."
+        "<h4>Methods and results</h4>Early quadruple therapy was defined. Outcomes improved."
+    )
+    splitter = SentenceSplitter()
+
+    document = splitter.split_document(record)
+    sections = [sentence.section for sentence in document.iter_sentences()]
+    abstract_sections = sections[2:]
+
+    assert sections[:2] == ["title", "title"]
+    assert abstract_sections[:2] == ["introduction", "introduction"]
+    assert abstract_sections[-1] == "results"
+
+
+def test_sentence_splitter_handles_run_on_headings():
+    record = _example_record()
+    record.abstract = (
+        "BackgroundThis cohort explored therapy adherence."
+        "MethodsParticipants were randomized."
+        "ResultsSignificant improvements observed."
+    )
+    splitter = SentenceSplitter()
+
+    document = splitter.split_document(record)
+    sections = [sentence.section for sentence in document.iter_sentences()]
+
+    assert sections[:2] == ["title", "title"]
+    assert sections[2:5] == ["introduction", "methods", "results"]

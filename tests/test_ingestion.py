@@ -29,6 +29,18 @@ def test_build_drug_query_includes_names_and_date_range(execution_log):
     )
 
 
+def test_build_drug_query_supports_group_and_logic():
+    query = EuropePMCClient.build_drug_query(
+        product_names=["enalapril", "sacubitril_valsartan"],
+        product_name_groups=[["enalapril", "Vasotec"], ["sacubitril_valsartan", "Entresto"]],
+        require_all_groups=True,
+    )
+
+    assert "(TITLE:\"enalapril\"" in query
+    assert "AND (TITLE:\"sacubitril_valsartan\"" in query or "AND (TITLE:\"Entresto\"" in query
+    assert "OR ABSTRACT:\"Vasotec\"" in query
+
+
 def test_parse_publication_date_variants(execution_log):
     client = EuropePMCClient()
 

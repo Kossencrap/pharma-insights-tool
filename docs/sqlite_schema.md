@@ -72,6 +72,7 @@ Key columns:
 - `doc_id`, `sentence_id`, `product_a`, `product_b` (composite primary key)
 - Label columns: `comparative_terms`, `relationship_types`, `risk_terms`,
   `study_context`, `matched_terms`
+- `section` (canonicalized abstract section per `config/section_aliases.json`)
 - Narrative columns: `narrative_type`, `narrative_subtype`,
   `narrative_confidence`
 - Sentiment: `sentiment_label`, `sentiment_score`, `sentiment_model`,

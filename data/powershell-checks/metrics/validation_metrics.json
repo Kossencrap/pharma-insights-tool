@@ -1,0 +1,7 @@
+{
+  "total_documents": 1837,
+  "distinct_pmid": 1756,
+  "distinct_pmcid": 903,
+  "distinct_doi": 1765,
+  "dedup_ratio": 1.0
+}

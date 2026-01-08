@@ -1,8 +1,20 @@
 {
-  "aspirin": ["aspirin", "acetylsalicylic acid"],
-  "dupilumab": ["Dupixent", "dupilumab"],
-  "insulin": ["Insulin", "rapid-acting insulin"],
-  "liraglutide": ["Victoza", "Saxenda", "liraglutide"],
-  "metformin": ["Glucophage", "metformin"],
-  "semaglutide": ["Ozempic", "Rybelsus", "semaglutide"]
+  "enalapril": [
+    "enalapril",
+    "enalapril maleate",
+    "Vasotec",
+    "Renitec",
+    "ACE inhibitor",
+    "ACEI",
+    "angiotensin converting enzyme inhibitor"
+  ],
+  "sacubitril_valsartan": [
+    "sacubitril/valsartan",
+    "sacubitril valsartan",
+    "Entresto",
+    "ARNI",
+    "ARNIs",
+    "angiotensin receptor neprilysin inhibitor",
+    "neprilysin inhibitor combination"
+  ]
 }

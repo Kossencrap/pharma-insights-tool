@@ -1,5 +1,9 @@
 # Phase 1 implementation status
 
+_Last updated: 2026-01-05_
+
+Phase 1 remains fully validated and serves as the “blessed path” for ingestion → labeling → exports. Since the last update we’ve wired in Phase 2 narrative/directional metrics throughout the pipeline, but the formal Phase 2 acceptance items (KPI sign-off, dashboard UX validation, doc refresh) are still open; see `docs/phase2-narrative.md` for the outstanding tasks before declaring Phase 2 complete.
+
 ## Completed or in-flight capabilities
 - **Europe PMC ingestion pipeline** with reproducible queries, retry/pagination, and optional proxy control is available via the `EuropePMCClient`, aligning with the scoped data source for Phase 1 ingestion. 【F:src/ingestion/europe_pmc_client.py†L23-L155】
 - **Document structuring and deduplication** converts ingestion results into normalized documents with title/abstract sections and identifier cleanup, giving us sentence-level containers for later analytics. 【F:src/structuring/models.py†L11-L198】

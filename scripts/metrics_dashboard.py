@@ -6,12 +6,15 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Iterable, Optional
+import math
 
-from src.analytics import explain_confidence, fetch_sentence_evidence
+from src.analytics import build_narrative_card, explain_confidence, fetch_sentence_evidence
 from src.analytics.weights import load_study_type_weights
 
 DEFAULT_DB = Path("data/europepmc.sqlite")
 DEFAULT_METRICS_DIR = Path("data/processed/metrics")
+MAX_NARRATIVE_CARDS = 4
+CARD_SENTENCE_LIMIT = 3
 
 
 def _read_metrics(path: Path):
@@ -34,7 +37,13 @@ def _read_metrics(path: Path):
         return rows
 
     if path.suffix == ".parquet":
-        return pd.read_parquet(path)
+        try:
+            return pd.read_parquet(path)
+        except Exception:
+            # Some mock artifacts are JSON payloads with a .parquet extension when pandas/pyarrow
+            # were unavailable during export. Fall back to JSON parsing for those files.
+            with path.open("r", encoding="utf-8") as f:
+                return pd.DataFrame(json.load(f))
     with path.open("r", encoding="utf-8") as f:
         return pd.DataFrame(json.load(f))
 
@@ -130,6 +139,8 @@ def _render_evidence(
     study_weight_lookup: Optional[dict] = None,
     narrative_type: Optional[str] = None,
     narrative_subtype: Optional[str] = None,
+    direction_type: Optional[str] = None,
+    direction_role: Optional[str] = None,
 ) -> None:
     with st.expander(header):
         if st.button("Load evidence", key=f"evidence-{header}"):
@@ -143,6 +154,8 @@ def _render_evidence(
                 product_b=product_b,
                 narrative_type=narrative_type,
                 narrative_subtype=narrative_subtype,
+                direction_type=direction_type,
+                direction_role=direction_role,
                 limit=limit,
             )
             if not evidence:
@@ -203,11 +216,256 @@ def _render_evidence(
                         if record.get("narrative_confidence") is not None:
                             narrative += f" | conf={record['narrative_confidence']:.2f}"
                         st.caption(f"Narrative: {narrative}")
+                    if record.get("direction_type"):
+                        direction_bits = [f"Direction: {record['direction_type']}"]
+                        if record.get("product_a_role"):
+                            direction_bits.append(
+                                f"{record['product_a']}: {record['product_a_role']}"
+                            )
+                        if record.get("product_b_role"):
+                            direction_bits.append(
+                                f"{record['product_b']}: {record['product_b_role']}"
+                            )
+                        st.caption(" | ".join(direction_bits))
                     if study_weight_lookup:
                         st.json(
                             explain_confidence(row, study_weight_lookup),
                             expanded=False,
                         )
+
+
+def _frame_rows(frame) -> list[dict]:
+    if frame is None:
+        return []
+    to_dict = getattr(frame, "to_dict", None)
+    if callable(to_dict):
+        try:
+            return to_dict(orient="records")  # type: ignore[arg-type]
+        except Exception:
+            pass
+    if isinstance(frame, list):
+        return frame
+    try:
+        return list(frame)
+    except TypeError:
+        return []
+
+
+def _bucket_sort_value(value) -> str:
+    if value is None:
+        return ""
+    try:
+        if isinstance(value, str):
+            return value
+        iso_method = getattr(value, "isoformat", None)
+        if callable(iso_method):
+            return iso_method()
+    except Exception:
+        pass
+    return str(value)
+
+
+def _latest_metrics_lookup(frame) -> dict[tuple[object, object], dict]:
+    rows = _frame_rows(frame)
+    lookup: dict[tuple[object, object], tuple[str, dict]] = {}
+    for row in rows:
+        key = (row.get("narrative_type"), row.get("narrative_subtype"))
+        bucket_key = _bucket_sort_value(row.get("bucket_start"))
+        existing = lookup.get(key)
+        if existing is None or bucket_key > existing[0]:
+            lookup[key] = (bucket_key, dict(row))
+    return {key: payload for key, (_, payload) in lookup.items()}
+
+
+def _select_change_candidates(rows: list[dict], limit: int) -> list[dict]:
+    if not rows:
+        return []
+    priority_map = {
+        "new": 0,
+        "significant_increase": 1,
+        "significant_decrease": 1,
+        "disappearing": 2,
+        "stable": 3,
+        "insufficient_history": 4,
+    }
+
+    def _priority(row: dict) -> tuple[int, float]:
+        status = str(row.get("status") or "").lower()
+        score = priority_map.get(status, 5)
+        try:
+            delta = row.get("delta_count")
+            magnitude = -abs(float(delta)) if delta is not None else 0.0
+        except (TypeError, ValueError):
+            magnitude = 0.0
+        return score, magnitude
+
+    sorted_rows = sorted(rows, key=_priority)
+    return sorted_rows[:limit]
+
+
+def _fallback_latest_rows(rows: list[dict], limit: int) -> list[dict]:
+    if not rows:
+        return []
+    grouped: dict[tuple[object, object], tuple[str, dict]] = {}
+    for row in rows:
+        key = (row.get("narrative_type"), row.get("narrative_subtype"))
+        bucket_key = _bucket_sort_value(row.get("bucket_start"))
+        existing = grouped.get(key)
+        if existing is None or bucket_key > existing[0]:
+            grouped[key] = (bucket_key, dict(row))
+    ordered = sorted(grouped.values(), key=lambda pair: pair[0], reverse=True)
+    return [row for _, row in ordered[:limit]]
+
+
+def _build_card_candidates(change_frame, fallback_frame, limit: int) -> list[dict]:
+    change_rows = _frame_rows(change_frame)
+    if change_rows:
+        selected = _select_change_candidates(change_rows, limit)
+    else:
+        selected = []
+    if selected:
+        return [
+            {
+                "narrative_type": row.get("narrative_type"),
+                "narrative_subtype": row.get("narrative_subtype"),
+                "change": row,
+            }
+            for row in selected
+            if row.get("narrative_type")
+        ]
+
+    fallback_rows = _frame_rows(fallback_frame)
+    latest_rows = _fallback_latest_rows(fallback_rows, limit)
+    return [
+        {
+            "narrative_type": row.get("narrative_type"),
+            "narrative_subtype": row.get("narrative_subtype"),
+            "change": None,
+        }
+        for row in latest_rows
+        if row.get("narrative_type")
+    ]
+
+
+def _load_narrative_cards(
+    *,
+    db_path: Path,
+    product_a: Optional[str],
+    product_b: Optional[str],
+    narratives_frame,
+    changes_frame,
+    study_weight_lookup: Optional[dict],
+    max_cards: int = MAX_NARRATIVE_CARDS,
+    sentences_per_card: int = CARD_SENTENCE_LIMIT,
+) -> list[dict]:
+    candidates = _build_card_candidates(changes_frame, narratives_frame, max_cards)
+    if not candidates or not db_path.exists():
+        return []
+
+    metrics_lookup = _latest_metrics_lookup(narratives_frame)
+    conn = sqlite3.connect(db_path)
+    cards: list[dict] = []
+    try:
+        for entry in candidates:
+            key = (entry["narrative_type"], entry["narrative_subtype"])
+            evidence_rows = fetch_sentence_evidence(
+                conn,
+                product_a=product_a,
+                product_b=product_b,
+                narrative_type=entry["narrative_type"],
+                narrative_subtype=entry["narrative_subtype"],
+                limit=sentences_per_card * 3,
+            )
+            if not evidence_rows:
+                continue
+            card = build_narrative_card(
+                narrative_type=entry["narrative_type"],
+                narrative_subtype=entry["narrative_subtype"],
+                metrics_row=metrics_lookup.get(key),
+                change_row=entry.get("change"),
+                evidence_rows=evidence_rows,
+                max_sentences=sentences_per_card,
+            )
+            cards.append(
+                card.to_dict(
+                    study_weight_lookup=study_weight_lookup,
+                    include_confidence=True,
+                )
+            )
+    finally:
+        conn.close()
+    return cards
+
+
+def _format_count(value: Optional[float]) -> str:
+    if value is None:
+        return "n/a"
+    try:
+        if math.isnan(value):
+            return "n/a"
+        if abs(value - round(value)) < 0.01:
+            return f"{value:.0f}"
+    except (TypeError, ValueError):
+        return "n/a"
+    return f"{value:.1f}"
+
+
+def _format_ratio(value: Optional[float]) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:+.1%}"
+
+
+def _format_weight(value: Optional[float]) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.2f}"
+
+
+def _render_narrative_cards(st, cards: list[dict]) -> None:
+    if not cards:
+        st.info("No narrative cards available for the selected filters.")
+        return
+
+    for card in cards:
+        title = card["narrative_type"]
+        if card.get("narrative_subtype"):
+            title = f"{title} – {card['narrative_subtype']}"
+        with st.container():
+            st.markdown(f"**{title}**")
+            meta_cols = st.columns(3)
+            meta_cols[0].metric(
+                "Latest count",
+                _format_count(card.get("current_count")),
+                delta=_format_ratio(card.get("wow_change")),
+            )
+            meta_cols[1].metric(
+                "Change status",
+                card.get("change_status") or "n/a",
+                delta=_format_ratio(card.get("delta_ratio")),
+            )
+            meta_cols[2].metric(
+                "Evidence weight",
+                _format_weight(card.get("evidence_total_weight")),
+            )
+            bucket = card.get("bucket_start") or "n/a"
+            ref_avg = _format_count(card.get("reference_avg"))
+            st.caption(f"Bucket: {bucket} | Reference avg: {ref_avg}")
+            evidence_rows = card.get("evidence") or []
+            if evidence_rows:
+                st.caption("Top sentences")
+            for evidence in evidence_rows:
+                sentence = evidence.get("sentence_text") or ""
+                sentence_meta = []
+                if evidence.get("publication_date"):
+                    sentence_meta.append(str(evidence["publication_date"]))
+                if evidence.get("journal"):
+                    sentence_meta.append(str(evidence["journal"]))
+                weight_display = _format_weight(evidence.get("evidence_weight"))
+                sentence_meta.append(f"Confidence {weight_display}")
+                st.markdown(
+                    f"- {sentence}\n  \n  _{' | '.join(sentence_meta)}_"
+                )
 
 
 def _render_chart(st, frame, title: str, *, group: Optional[str] = None, value: str = "count"):
@@ -364,6 +622,50 @@ def _extract_change_thresholds(frame):
     }
 
 
+def _filter_directional(
+    frame,
+    *,
+    product: Optional[str],
+    partner: Optional[str],
+    direction_type: Optional[str],
+    role: Optional[str],
+):
+    if frame is None:
+        return frame
+
+    filtered = frame
+    if hasattr(filtered, "loc"):
+        if product:
+            filtered = filtered.loc[
+                filtered["product"].str.lower() == product.lower()
+            ]
+        if partner and "partner" in filtered.columns:
+            filtered = filtered.loc[
+                filtered["partner"].str.lower() == partner.lower()
+            ]
+        if direction_type and "direction_type" in filtered.columns:
+            filtered = filtered.loc[
+                filtered["direction_type"].str.lower() == direction_type.lower()
+            ]
+        if role and "role" in filtered.columns:
+            filtered = filtered.loc[filtered["role"].str.lower() == role.lower()]
+        return filtered
+
+    rows = frame or []
+    result = []
+    for row in rows:
+        if product and str(row.get("product", "")).lower() != product.lower():
+            continue
+        if partner and str(row.get("partner", "")).lower() != partner.lower():
+            continue
+        if direction_type and str(row.get("direction_type", "")).lower() != direction_type.lower():
+            continue
+        if role and str(row.get("role", "")).lower() != role.lower():
+            continue
+        result.append(row)
+    return result
+
+
 def main() -> None:
     try:
         import streamlit as st
@@ -407,6 +709,9 @@ def main() -> None:
         narrative_change_frame = _ensure_datetime(
             _read_metrics(metrics_dir / f"narratives_change_{freq}.parquet")
         )
+        directional_frame = _ensure_datetime(
+            _read_metrics(metrics_dir / f"directional_{freq}.parquet")
+        )
     except RuntimeError as exc:
         st.error(str(exc))
         return
@@ -433,7 +738,30 @@ def main() -> None:
             partner_filter = None
 
     st.subheader("Publication volume")
-    _render_chart(st, documents_frame, "Publication volume")
+    documents_filtered = documents_frame
+    documents_group = None
+    if _has_column(documents_frame, "product_canonical"):
+        documents_group = "product_canonical"
+        if product_filter:
+            allowed = {product_filter.lower()}
+            if partner_filter:
+                allowed.add(partner_filter.lower())
+            allowed.add("(all)")
+            if hasattr(documents_frame, "loc"):
+                mask = documents_frame["product_canonical"].astype(str).str.lower().isin(allowed)
+                documents_filtered = documents_frame.loc[mask]
+            else:
+                documents_filtered = [
+                    row
+                    for row in documents_frame or []
+                    if str(row.get("product_canonical", "")).lower() in allowed
+                ]
+    _render_chart(
+        st,
+        documents_filtered,
+        "Publication volume",
+        group=documents_group,
+    )
     _render_evidence(
         st,
         db_path=db_path,
@@ -500,6 +828,7 @@ def main() -> None:
 
     narrative_type_value = None
     narrative_subtype_value = None
+    narratives_filtered = None
 
     st.subheader("Narrative trend")
     if narratives_frame is None or not _has_column(narratives_frame, "narrative_type"):
@@ -544,6 +873,7 @@ def main() -> None:
         )
 
     st.subheader("Narrative change since last review")
+    changes_filtered = None
     if narrative_change_frame is None or not _has_column(narrative_change_frame, "status"):
         st.info(
             "No narrative change metrics available; re-run aggregate_metrics to generate narratives_change_*.parquet."
@@ -567,15 +897,74 @@ def main() -> None:
                 f"Status compares the latest bucket to the average of the previous {thresholds['lookback']} buckets "
                 f"(min ratio {thresholds['min_ratio']}, min delta {thresholds['min_count']})."
             )
+    _render_evidence(
+        st,
+        db_path=db_path,
+        product_a=product_filter,
+        product_b=partner_filter,
+        header="Evidence for narrative changes",
+        study_weight_lookup=study_weight_lookup,
+        narrative_type=narrative_type_value,
+        narrative_subtype=narrative_subtype_value,
+    )
+
+    st.subheader("Narrative evidence cards")
+    narratives_for_cards = narratives_filtered if narratives_filtered is not None else narratives_frame
+    changes_for_cards = changes_filtered if changes_filtered is not None else narrative_change_frame
+    cards_payload = _load_narrative_cards(
+        db_path=db_path,
+        product_a=product_filter,
+        product_b=partner_filter,
+        narratives_frame=narratives_for_cards,
+        changes_frame=changes_for_cards,
+        study_weight_lookup=study_weight_lookup,
+    )
+    _render_narrative_cards(st, cards_payload)
+
+    st.subheader("Competitive directionality")
+    if directional_frame is None or not _has_column(directional_frame, "direction_type"):
+        st.info(
+            "No directional metrics available; re-run aggregate_metrics to generate directional_*.parquet."
+        )
+    else:
+        direction_options = ["(all)"] + _unique_values(directional_frame, "direction_type")
+        selected_direction = st.sidebar.selectbox(
+            "Direction type", options=direction_options
+        )
+        direction_value = None if selected_direction == "(all)" else selected_direction
+
+        role_options = ["(all)"] + _unique_values(directional_frame, "role")
+        selected_role = st.sidebar.selectbox("Product role", options=role_options)
+        role_value = None if selected_role == "(all)" else selected_role
+
+        directional_filtered = _filter_directional(
+            directional_frame,
+            product=product_filter,
+            partner=partner_filter,
+            direction_type=direction_value,
+            role=role_value,
+        )
+
+        if product_filter:
+            chart_group = "partner" if not role_value else "role"
+        else:
+            chart_group = "product"
+
+        _render_chart(
+            st,
+            directional_filtered,
+            "Directional trend",
+            group=chart_group,
+        )
         _render_evidence(
             st,
             db_path=db_path,
             product_a=product_filter,
             product_b=partner_filter,
-            header="Evidence for narrative changes",
+            header="Evidence for directionality",
             study_weight_lookup=study_weight_lookup,
-            narrative_type=narrative_type_value,
-            narrative_subtype=narrative_subtype_value,
+            direction_type=direction_value,
+            direction_role=role_value,
         )
 
     st.subheader("Sentiment ratios")

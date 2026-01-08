@@ -88,6 +88,13 @@ def main() -> None:
             if evidence.narrative_confidence is not None:
                 narrative_bits.append(f"confidence={evidence.narrative_confidence:.2f}")
             print("Narrative: " + ", ".join(narrative_bits))
+        if evidence.direction_type or evidence.product_a_role or evidence.product_b_role:
+            direction_bits = [f"type={evidence.direction_type or 'n/a'}"]
+            if evidence.product_a_role:
+                direction_bits.append(f"{evidence.product_a}: {evidence.product_a_role}")
+            if evidence.product_b_role:
+                direction_bits.append(f"{evidence.product_b}: {evidence.product_b_role}")
+            print("Direction: " + ", ".join(direction_bits))
         print(evidence.sentence_text.strip())
         if evidence.labels:
             print(f"Labels: {', '.join(evidence.labels)}")

@@ -1,0 +1,31 @@
+{
+  "label_precision": {
+    "sample_size": 30,
+    "min_precision": 0.9,
+    "high_risk_min_precision": 0.95,
+    "high_risk_types": [
+      "safety"
+    ],
+    "sample_export": "artifacts/kpi/narratives_label_kpi.csv"
+  },
+  "confidence_breakdown": {
+    "min_top_gap": 0.02,
+    "min_sentence_confidence": 0.6,
+    "require_sum_to_one": true,
+    "low_confidence_flag": "low_confidence"
+  },
+  "change_significance": {
+    "min_relative_delta": 0.2,
+    "min_sentence_count": 10,
+    "status_field": "change_status",
+    "export_glob": "metrics/narratives_change_*.parquet"
+  },
+  "competitive_direction": {
+    "sample_size": 10,
+    "min_accuracy": 0.85,
+    "reference_file": "tests/data/competitive_kpi.json"
+  },
+  "narrative_invariants": {
+    "min_pass_rate": 0.95
+  }
+}

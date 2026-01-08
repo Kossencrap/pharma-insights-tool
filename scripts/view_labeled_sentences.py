@@ -106,29 +106,29 @@ def main() -> None:
                 with st.expander(
                     f"{record['doc_id']} | {record['product_a']} vs {record['product_b']} (confidence: {record['confidence']:.3f})"
                 ):
-                st.write(record["sentence_text"])
-                meta_cols = st.columns(4)
-                meta_cols[0].metric("Recency", f"{record.get('recency_weight', 1.0):.2f}")
-                meta_cols[1].metric(
-                    "Study weight", f"{record.get('study_type_weight_resolved', 1.0):.2f}"
-                )
-                meta_cols[2].metric("Count", str(record.get("count", 1)))
-                meta_cols[3].metric("Confidence", f"{record['confidence']:.2f}")
+                    st.write(record["sentence_text"])
+                    meta_cols = st.columns(4)
+                    meta_cols[0].metric("Recency", f"{record.get('recency_weight', 1.0):.2f}")
+                    meta_cols[1].metric(
+                        "Study weight", f"{record.get('study_type_weight_resolved', 1.0):.2f}"
+                    )
+                    meta_cols[2].metric("Count", str(record.get("count", 1)))
+                    meta_cols[3].metric("Confidence", f"{record['confidence']:.2f}")
 
-                if record.get("labels"):
-                    st.write("**Labels:**", ", ".join(record["labels"]))
-                if record.get("matched_terms"):
-                    st.write("**Matched terms:**", record["matched_terms"])
-                if record.get("context_rule_hits"):
-                    st.write("**Context rules:**", ", ".join(record["context_rule_hits"]))
-                if record.get("narrative_type"):
-                    narrative = record["narrative_type"]
-                    if record.get("narrative_subtype"):
-                        narrative += f" ({record['narrative_subtype']})"
-                    if record.get("narrative_confidence") is not None:
-                        narrative += f" | conf={record['narrative_confidence']:.2f}"
-                    st.caption(f"Narrative: {narrative}")
-                st.json({k: v for k, v in record.items() if k not in {"sentence_text"}})
+                    if record.get("labels"):
+                        st.write("**Labels:**", ", ".join(record["labels"]))
+                    if record.get("matched_terms"):
+                        st.write("**Matched terms:**", record["matched_terms"])
+                    if record.get("context_rule_hits"):
+                        st.write("**Context rules:**", ", ".join(record["context_rule_hits"]))
+                    if record.get("narrative_type"):
+                        narrative = record["narrative_type"]
+                        if record.get("narrative_subtype"):
+                            narrative += f" ({record['narrative_subtype']})"
+                        if record.get("narrative_confidence") is not None:
+                            narrative += f" | conf={record['narrative_confidence']:.2f}"
+                        st.caption(f"Narrative: {narrative}")
+                    st.json({k: v for k, v in record.items() if k not in {"sentence_text"}})
 
 
 if __name__ == "__main__":

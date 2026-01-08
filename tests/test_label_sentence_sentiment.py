@@ -38,6 +38,13 @@ def test_label_sentence_sentiment_updates_db(tmp_path: Path) -> None:
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                sentence.section,
             )
         ],
     )

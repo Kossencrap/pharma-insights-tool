@@ -165,6 +165,7 @@ def _aggregate_frames(
         "co_mentions_weighted": {},
         "narratives": {},
         "narratives_change": {},
+        "directional": {},
     }
     config = change_config or aggregator.NarrativeChangeConfig()
     for freq in freqs:
@@ -177,6 +178,7 @@ def _aggregate_frames(
         narrative_rows, change_rows = aggregator._aggregate_narratives(con, freq, config)
         aggregates["narratives"][freq] = narrative_rows
         aggregates["narratives_change"][freq] = change_rows
+        aggregates["directional"][freq] = aggregator._aggregate_directional_events(con, freq)
     return aggregates
 
 
@@ -250,7 +252,14 @@ def _validate_consistency(con: sqlite3.Connection, aggregates: Dict[str, Dict[st
     sentence_total = _table_count(con, "sentences")
 
     for freq, rows in aggregates.get("documents", {}).items():
-        agg_total = int(sum(row.get("count", 0) or 0 for row in rows))
+        agg_total = int(
+            sum(
+                row.get("count", 0) or 0
+                for row in rows
+                if not row.get("product_canonical")
+                or str(row.get("product_canonical")) == aggregator.ALL_PRODUCTS_LABEL
+            )
+        )
         checks.append(
             {
                 "metric": f"documents_{freq}",

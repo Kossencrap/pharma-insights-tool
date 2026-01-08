@@ -1,0 +1,62 @@
+[
+  {
+    "product_pair": "enalapril vs sacubitril_valsartan",
+    "expected_role": "add_on",
+    "evidence_id": "directional_w:2016-04-18",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "enalapril vs sacubitril_valsartan",
+    "expected_role": "backbone",
+    "evidence_id": "directional_w:2025-05-26",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "enalapril vs sacubitril_valsartan",
+    "expected_role": "disfavored",
+    "evidence_id": "directional_w:2016-02-29",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "enalapril vs sacubitril_valsartan",
+    "expected_role": "switch_destination",
+    "evidence_id": "directional_w:2025-04-21",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "enalapril vs sacubitril_valsartan",
+    "expected_role": "switch_source",
+    "evidence_id": "directional_w:2023-08-21",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "sacubitril_valsartan vs enalapril",
+    "expected_role": "add_on",
+    "evidence_id": "directional_w:2016-08-29",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "sacubitril_valsartan vs enalapril",
+    "expected_role": "backbone",
+    "evidence_id": "directional_w:2016-04-18",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "sacubitril_valsartan vs enalapril",
+    "expected_role": "favored",
+    "evidence_id": "directional_w:2016-02-29",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "sacubitril_valsartan vs enalapril",
+    "expected_role": "switch_destination",
+    "evidence_id": "directional_w:2023-08-21",
+    "notes": "auto-ref"
+  },
+  {
+    "product_pair": "sacubitril_valsartan vs enalapril",
+    "expected_role": "switch_source",
+    "evidence_id": "directional_w:2025-04-21",
+    "notes": "auto-ref"
+  }
+]

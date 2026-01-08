@@ -14,24 +14,60 @@
       "equivalent to",
       "outperformed",
       "inferior to",
-      "non inferior"
+      "non inferior",
+      "improved vs",
+      "greater efficacy than",
+      "associated with better outcomes",
+      "comparable to",
+      "similar efficacy",
+      "no significant difference",
+      "worse outcomes than"
     ],
     "relationship_patterns": {
       "combination": [
-        "and",
-        "plus",
         "combined with",
         "co-administered",
         "coadministered",
         "co-administration",
         "coadministration",
-        "in combination with"
+        "in combination with",
+        "combination therapy",
+        "combination treatment",
+        "combined regimen",
+        "co-therapy",
+        "co-treatment",
+        "concomitant therapy",
+        "concomitantly administered",
+        "concomitant use",
+        "used in combination with",
+        "combination arm",
+        "fixed-dose combination",
+        "fdc",
+        "gdmt",
+        "quadruple gdmt",
+        "dual therapy",
+        "triple therapy",
+        "quadruple therapy",
+        "four pillars",
+        "pillars of therapy",
+        "arni/acei/arb",
+        "acei/arb/arni"
       ],
       "add-on therapy": [
         "add-on",
         "add on",
         "added to",
-        "add-on therapy"
+        "add-on therapy",
+        "add-on treatment",
+        "adjunct therapy",
+        "adjunctive treatment",
+        "added to background therapy",
+        "added on top of",
+        "layered onto",
+        "background therapy",
+        "backbone therapy",
+        "on top of standard of care",
+        "in addition to standard therapy"
       ],
       "delivery": [
         "delivered via",
@@ -39,20 +75,47 @@
         "delivery",
         "device",
         "pen",
-        "formulation"
+        "formulation",
+        "delivered through",
+        "administered through",
+        "via injection",
+        "via infusion",
+        "oral formulation",
+        "subcutaneous formulation",
+        "intravenous formulation",
+        "injector",
+        "auto-injector",
+        "prefilled pen",
+        "wearable injector",
+        "pump-based delivery",
+        "delivery system",
+        "extended-release",
+        "sustained-release",
+        "modified-release",
+        "long-acting formulation"
       ],
       "switching": [
         "switched to",
         "switching to",
         "converted to",
-        "transitioned to"
+        "transitioned to",
+        "switch therapy",
+        "switching from",
+        "therapy conversion",
+        "converted from",
+        "treatment change",
+        "therapy change",
+        "discontinued and initiated",
+        "replaced by",
+        "substitution"
       ]
     },
     "risk_terms": [
       "risk",
-      "adverse",
       "adverse event",
       "adverse events",
+      "adverse effect",
+      "adverse effects",
       "serious adverse event",
       "serious adverse events",
       "side effect",
@@ -64,7 +127,14 @@
       "serious",
       "fatal",
       "ae",
-      "aes"
+      "aes",
+      "safety profile",
+      "treatment-emergent adverse event",
+      "teae",
+      "dose-limiting toxicity",
+      "hepatotoxicity",
+      "cardiovascular risk",
+      "injection-site reaction"
     ],
     "study_context_terms": [
       "trial",
@@ -79,7 +149,28 @@
       "phase",
       "cohort",
       "enrollment",
-      "recruitment"
+      "recruitment",
+      "real-world",
+      "real world",
+      "observational",
+      "registry",
+      "claims data",
+      "retrospective",
+      "clinical trial",
+      "randomized controlled trial",
+      "rct",
+      "double-blind",
+      "placebo-controlled",
+      "parallel-group",
+      "crossover study",
+      "endpoint-driven trial",
+      "narrative review",
+      "pooled analysis",
+      "umbrella review",
+      "scoping review",
+      "consensus statement",
+      "clinical guideline",
+      "position paper"
     ],
     "trial_phase_patterns": [
       "phase\\s*[1-4](?:/[1-4])?[ab]?",
@@ -100,7 +191,165 @@
       "body weight",
       "weight loss",
       "blood pressure"
-    ]
+    ],
+    "line_of_therapy_terms": [
+      "first-line",
+      "first line",
+      "second-line",
+      "second line",
+      "2nd-line",
+      "third-line",
+      "third line",
+      "initial therapy",
+      "maintenance therapy",
+      "earlier-line",
+      "later-line",
+      "first-line therapy",
+      "second-line therapy",
+      "third-line therapy",
+      "early-line therapy",
+      "later-line therapy",
+      "frontline therapy",
+      "salvage therapy",
+      "continuation therapy",
+      "consolidation therapy"
+    ],
+    "real_world_terms": [
+      "real-world",
+      "real world",
+      "observational",
+      "registry",
+      "claims data",
+      "retrospective",
+      "post-marketing",
+      "real life",
+      "real-world evidence",
+      "rwe",
+      "observational study",
+      "retrospective study",
+      "prospective cohort",
+      "registry-based study",
+      "administrative data",
+      "electronic health records",
+      "ehr-derived",
+      "database analysis"
+    ],
+    "access_terms": [
+      "access",
+      "coverage",
+      "reimbursement",
+      "prior authorization",
+      "copay",
+      "affordability",
+      "patient assistance",
+      "payer",
+      "coverage limitation",
+      "formulary restriction",
+      "payer restriction",
+      "step therapy",
+      "utilization management",
+      "out-of-pocket cost",
+      "affordability issue",
+      "cost burden"
+    ],
+    "risk_posture_terms": {
+      "reassurance": [
+        "no unexpected safety signals",
+        "no unexpected aes",
+        "no treatment emergent safety signals",
+        "well tolerated",
+        "generally well tolerated",
+        "favorable safety profile",
+        "manageable",
+        "manageable safety profile",
+        "no increase in adverse events",
+        "similar rates of adverse events",
+        "comparable safety",
+        "consistent safety",
+        "no new safety findings"
+      ],
+      "minimization": [
+        "low incidence",
+        "low rate of adverse events",
+        "rare adverse events",
+        "infrequent adverse events",
+        "minimal risk",
+        "rarely observed",
+        "isolated adverse events",
+        "rare cases",
+        "low frequency",
+        "scarcely reported"
+      ],
+      "acknowledgment": [
+        "higher risk",
+        "increased risk",
+        "higher incidence",
+        "increased incidence",
+        "risk of",
+        "risk was",
+        "was associated with more",
+        "was associated with higher",
+        "albeit with",
+        "at the expense of",
+        "came with",
+        "observed more",
+        "reported more adverse",
+        "demonstrated more adverse",
+        "higher symptomatic",
+        "more frequent adverse"
+      ]
+    },
+    "claim_strength_terms": {
+      "confirmatory": [
+        "statistically significant",
+        "significant improvement",
+        "significant reduction",
+        "met the primary endpoint",
+        "met primary endpoints",
+        "achieved non inferiority",
+        "achieved non-inferiority",
+        "achieved superiority",
+        "p<",
+        "p <",
+        "p=",
+        "p =",
+        "p-value",
+        "p value",
+        "established superiority",
+        "established noninferiority"
+      ],
+      "suggestive": [
+        "trend toward",
+        "trended toward",
+        "numerically higher",
+        "numerically lower",
+        "numerical improvement",
+        "numerically improved",
+        "signal",
+        "signal toward",
+        "greater reduction",
+        "greater improvement",
+        "secondary endpoint",
+        "secondary endpoints",
+        "subgroup analysis",
+        "post hoc",
+        "post-hoc"
+      ],
+      "exploratory": [
+        "encouraging",
+        "promising",
+        "preliminary",
+        "hypothesis-generating",
+        "may improve",
+        "might improve",
+        "could improve",
+        "may reduce",
+        "might reduce",
+        "could reduce",
+        "suggests that",
+        "suggesting that"
+      ]
+    }
   },
   "narratives": [
     {
@@ -110,27 +359,40 @@
       "confidence": 0.9,
       "priority": 100,
       "requires": {
-        "risk_terms": ["*"]
-      }
+        "risk_terms": [
+          "*"
+        ]
+      },
+      "exclude_sections": [
+        "methods"
+      ]
     },
     {
       "name": "positioning_combination",
       "type": "positioning",
       "subtype": "combination",
       "confidence": 0.85,
-      "priority": 90,
+      "priority": 65,
       "requires": {
-        "relationship_types": ["combination", "add-on therapy"]
-      }
+        "relationship_types": [
+          "combination",
+          "add-on therapy"
+        ]
+      },
+      "exclude_sections": [
+        "methods"
+      ]
     },
     {
       "name": "positioning_switching",
       "type": "positioning",
       "subtype": "switching",
-      "confidence": 0.8,
+      "confidence": 0.7,
       "priority": 85,
       "requires": {
-        "relationship_types": ["switching"]
+        "relationship_types": [
+          "switching"
+        ]
       }
     },
     {
@@ -140,40 +402,93 @@
       "confidence": 0.75,
       "priority": 80,
       "requires": {
-        "relationship_types": ["delivery"]
+        "relationship_types": [
+          "delivery"
+        ]
+      }
+    },
+    {
+      "name": "positioning_line_of_therapy",
+      "type": "positioning",
+      "subtype": "line_of_therapy",
+      "confidence": 0.83,
+      "priority": 88,
+      "requires": {
+        "line_of_therapy_terms": [
+          "*"
+        ]
       }
     },
     {
       "name": "comparative_advantage",
       "type": "comparative",
-      "subtype": "comparative_advantage",
-      "confidence": 0.8,
+      "subtype": "comparative_efficacy_advantage",
+      "confidence": 0.7,
       "priority": 70,
       "requires": {
-        "comparative_terms": ["*"]
+        "comparative_terms": [
+          "*"
+        ]
       },
-      "requires_sentiment": ["POS", "positive"]
+      "requires_sentiment": [
+        "POS",
+        "positive"
+      ],
+      "exclude_sections": [
+        "methods"
+      ]
     },
     {
       "name": "comparative_disadvantage",
       "type": "comparative",
-      "subtype": "comparative_disadvantage",
+      "subtype": "comparative_efficacy_disadvantage",
       "confidence": 0.8,
       "priority": 70,
       "requires": {
-        "comparative_terms": ["*"]
+        "comparative_terms": [
+          "*"
+        ]
       },
-      "requires_sentiment": ["NEG", "negative"]
+      "requires_sentiment": [
+        "NEG",
+        "negative"
+      ],
+      "exclude_sections": [
+        "methods"
+      ]
     },
     {
       "name": "comparative_neutral",
       "type": "comparative",
-      "subtype": "comparative",
-      "confidence": 0.75,
+      "subtype": "comparative_efficacy",
+      "confidence": 0.6,
       "priority": 60,
       "requires": {
-        "comparative_terms": ["*"]
-      }
+        "comparative_terms": [
+          "*"
+        ]
+      },
+      "exclude_sections": [
+        "methods"
+      ]
+    },
+    {
+      "name": "comparative_tradeoff",
+      "type": "comparative",
+      "subtype": "comparative_safety",
+      "confidence": 0.9,
+      "priority": 105,
+      "requires": {
+        "comparative_terms": [
+          "*"
+        ],
+        "risk_terms": [
+          "*"
+        ]
+      },
+      "exclude_sections": [
+        "methods"
+      ]
     },
     {
       "name": "evidence_clinical_trial",
@@ -182,7 +497,12 @@
       "confidence": 0.7,
       "priority": 50,
       "requires": {
-        "study_context": ["phase", "trial", "randomized", "randomised"]
+        "study_context": [
+          "phase",
+          "trial",
+          "randomized",
+          "randomised"
+        ]
       }
     },
     {
@@ -192,7 +512,23 @@
       "confidence": 0.7,
       "priority": 40,
       "requires": {
-        "study_context": ["review", "meta-analysis", "systematic review"]
+        "study_context": [
+          "review",
+          "meta-analysis",
+          "systematic review"
+        ]
+      }
+    },
+    {
+      "name": "evidence_real_world",
+      "type": "evidence",
+      "subtype": "real_world",
+      "confidence": 0.72,
+      "priority": 45,
+      "requires": {
+        "real_world_terms": [
+          "*"
+        ]
       }
     },
     {
@@ -202,7 +538,13 @@
       "confidence": 0.6,
       "priority": 30,
       "requires": {},
-      "requires_sentiment": ["POS", "positive"]
+      "requires_sentiment": [
+        "POS",
+        "positive"
+      ],
+      "exclude_sections": [
+        "methods"
+      ]
     },
     {
       "name": "concern_negative_signal",
@@ -211,7 +553,131 @@
       "confidence": 0.6,
       "priority": 30,
       "requires": {},
-      "requires_sentiment": ["NEG", "negative"]
+      "requires_sentiment": [
+        "NEG",
+        "negative"
+      ],
+      "exclude_sections": [
+        "methods"
+      ]
+    },
+    {
+      "name": "access_barrier",
+      "type": "access",
+      "subtype": "coverage_access",
+      "confidence": 0.65,
+      "priority": 35,
+      "requires": {
+        "access_terms": [
+          "*"
+        ]
+      }
+    }
+  ],
+  "directional_patterns": [
+    {
+      "name": "preferred_over",
+      "direction_type": "alternative",
+      "subject_role": "favored",
+      "object_role": "disfavored",
+      "priority": 120,
+      "match_type": "between",
+      "phrases": [
+        "preferred over",
+        "better than",
+        "superior to",
+        "outperformed",
+        "more effective than",
+        "favored over",
+        "favored versus",
+        "favored vs",
+        "preferred to"
+      ]
+    },
+    {
+      "name": "inferior_to",
+      "direction_type": "alternative",
+      "subject_role": "disfavored",
+      "object_role": "favored",
+      "priority": 115,
+      "match_type": "between",
+      "phrases": [
+        "inferior to",
+        "worse than",
+        "less effective than",
+        "worse outcomes than"
+      ]
+    },
+    {
+      "name": "switch_to",
+      "direction_type": "switch",
+      "subject_role": "switch_source",
+      "object_role": "switch_destination",
+      "priority": 110,
+      "match_type": "after",
+      "phrases": [
+        "switched to",
+        "switching to",
+        "converted to",
+        "transitioned to",
+        "changing to",
+        "switch therapy",
+        "therapy conversion",
+        "treatment change",
+        "transitioned onto",
+        "initiated after discontinuation"
+      ]
+    },
+    {
+      "name": "switch_from",
+      "direction_type": "switch",
+      "subject_role": "switch_source",
+      "object_role": "switch_destination",
+      "priority": 108,
+      "match_type": "after",
+      "phrases": [
+        "switched from",
+        "switching from",
+        "converted from",
+        "transitioned from",
+        "transitioned off",
+        "therapy change",
+        "treatment change"
+      ]
+    },
+    {
+      "name": "add_on_to",
+      "direction_type": "add_on",
+      "subject_role": "add_on",
+      "object_role": "backbone",
+      "priority": 105,
+      "match_type": "between",
+      "phrases": [
+        "added to",
+        "add-on to",
+        "add on to",
+        "addition to",
+        "used alongside",
+        "on background therapy",
+        "on top of standard of care"
+      ]
+    },
+    {
+      "name": "combination_with",
+      "direction_type": "add_on",
+      "subject_role": "add_on",
+      "object_role": "add_on",
+      "priority": 100,
+      "match_type": "between",
+      "phrases": [
+        "in combination with",
+        "combined with",
+        "used with",
+        "used alongside",
+        "background therapy",
+        "backbone therapy",
+        "adjunctive therapy"
+      ]
     }
   ]
 }

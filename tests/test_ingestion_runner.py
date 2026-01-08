@@ -65,11 +65,15 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(
         proxy=None,
         db=db_path,
         product_config=pathlib.Path(__file__).resolve().parents[1] / "config" / "products.json",
+        expand_query_aliases=False,
+        require_all_products=False,
     )
 
     runner.run_ingestion(["MockProduct"], args, raw_dir=raw_dir, processed_dir=processed_dir)
 
     assert FakeClient.last_build_kwargs["product_names"] == ["MockProduct"]
+    assert FakeClient.last_build_kwargs["product_name_groups"] == [["MockProduct"]]
+    assert FakeClient.last_build_kwargs["require_all_groups"] is False
     assert FakeClient.last_search_query.query == "mock query"
     assert FakeClient.last_search_query.page_size == 2
     assert FakeClient.last_max_records == 2
@@ -140,6 +144,8 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys, execu
         proxy=None,
         db=None,
         product_config=None,
+        expand_query_aliases=False,
+        require_all_products=False,
     )
 
     runner.run_ingestion(["NoResults"], args, raw_dir=raw_dir, processed_dir=processed_dir)

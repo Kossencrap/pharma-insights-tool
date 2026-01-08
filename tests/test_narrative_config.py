@@ -30,6 +30,15 @@ def test_load_narrative_schema_parses_rules(tmp_path: Path) -> None:
                         "requires": {"risk_terms": ["*"]},
                     }
                 ],
+                "directional_patterns": [
+                    {
+                        "name": "test_direction",
+                        "direction_type": "alternative",
+                        "subject_role": "favored",
+                        "object_role": "disfavored",
+                        "phrases": ["better than"],
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -39,6 +48,7 @@ def test_load_narrative_schema_parses_rules(tmp_path: Path) -> None:
     schema = load_narrative_schema(config_path)
     assert schema.rules[0].name == "test_safety"
     assert schema.terms.comparative_terms == ("vs",)
+    assert schema.terms.directional_patterns[0].name == "test_direction"
 
 
 def test_invalid_config_raises(tmp_path: Path) -> None:

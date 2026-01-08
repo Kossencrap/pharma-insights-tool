@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
-from src.structuring.models import Document, Sentence
+if TYPE_CHECKING:  # pragma: no cover - imported only for typing
+    from src.structuring.models import Document, Sentence
 from .evidence import (
     SentenceEvidence,
     explain_confidence,
     fetch_sentence_evidence,
+    build_narrative_card,
+    NarrativeEvidenceCard,
     resolve_study_weight,
     serialize_sentence_evidence,
 )
-from .narratives import NarrativeClassification, classify_narrative
+from .narratives import (
+    DirectionalClassification,
+    NarrativeClassification,
+    ProductRoleContext,
+    classify_directional_roles,
+    classify_narrative,
+)
 from .indication_extractor import IndicationExtractor, load_indication_config
 from .mention_extractor import (
     MentionExtractor,
@@ -38,15 +47,15 @@ from .weights import (
 )
 
 
-def sentence_counts_by_section(document: Document) -> Dict[str, int]:
+def sentence_counts_by_section(document: "Document") -> Dict[str, int]:
     return {section.name: len(section.sentences) for section in document.sections}
 
 
-def flattened_sentences(document: Document) -> List[Sentence]:
+def flattened_sentences(document: "Document") -> List["Sentence"]:
     return list(document.iter_sentences())
 
 
-def mean_sentence_length(document: Document) -> float:
+def mean_sentence_length(document: "Document") -> float:
     sentences = flattened_sentences(document)
     if not sentences:
         return 0.0
@@ -63,6 +72,7 @@ __all__ = [
     "load_product_config",
     "mean_sentence_length",
     "SentenceEvidence",
+    "NarrativeEvidenceCard",
     "explain_confidence",
     "DocumentWeight",
     "compute_document_weight",
@@ -72,6 +82,7 @@ __all__ = [
     "map_study_type",
     "sentence_counts_by_section",
     "fetch_sentence_evidence",
+    "build_narrative_card",
     "serialize_sentence_evidence",
     "TimeSeriesConfig",
     "add_change_metrics",
@@ -85,4 +96,7 @@ __all__ = [
     "resolve_study_weight",
     "NarrativeClassification",
     "classify_narrative",
+    "DirectionalClassification",
+    "ProductRoleContext",
+    "classify_directional_roles",
 ]

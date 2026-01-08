@@ -132,6 +132,18 @@ def parse_args() -> argparse.Namespace:
         default=250,
         help="Warn when the SQLite DB exceeds this size after ingestion (default: 250MB)",
     )
+    parser.add_argument(
+        "--no-query-aliases",
+        dest="expand_query_aliases",
+        action="store_false",
+        help="Disable expanding ingestion queries to include product aliases from config.",
+    )
+    parser.set_defaults(expand_query_aliases=True)
+    parser.add_argument(
+        "--require-all-products",
+        action="store_true",
+        help="Require every selected product (and its aliases) to appear in the ingestion query (AND).",
+    )
     return parser.parse_args()
 
 
@@ -148,6 +160,7 @@ def main() -> None:
 
     prefix = args.output_prefix or _slug(product_names[0])
     structured_path = Path("data/processed") / f"{prefix}_structured.jsonl"
+    sentiment_events_path = Path("data/processed") / f"{prefix}_sentence_events_for_sentiment.jsonl"
 
     ingestion_cmd = [
         sys.executable,
@@ -186,6 +199,10 @@ def main() -> None:
             str(args.db_size_warn_mb),
         ]
     )
+    if args.expand_query_aliases:
+        ingestion_cmd.append("--expand-query-aliases")
+    if args.require_all_products:
+        ingestion_cmd.append("--require-all-products")
     if not args.include_reviews:
         ingestion_cmd.append("--exclude-reviews")
     if not args.include_trials:
@@ -207,12 +224,23 @@ def main() -> None:
         label_events_cmd.extend(["--since-publication", args.from_date])
     _run_command(label_events_cmd, "2/5 Label co-mention sentence contexts")
 
+    export_sentiment_input_cmd = [
+        sys.executable,
+        "-m",
+        "scripts.export_sentence_events_jsonl",
+        "--db",
+        str(args.db),
+        "--output",
+        str(sentiment_events_path),
+    ]
+    _run_command(export_sentiment_input_cmd, "2b/5 Export sentence events for sentiment labeling")
+
     sentiment_cmd = [
         sys.executable,
         "-m",
         "scripts.label_sentence_sentiment",
         "--input",
-        str(structured_path),
+        str(sentiment_events_path),
         "--db",
         str(args.db),
     ]
@@ -260,6 +288,7 @@ def main() -> None:
         "db": str(args.db),
         "artifacts_dir": str(artifacts_dir),
         "structured_path": str(structured_path),
+        "sentiment_events_path": str(sentiment_events_path),
         "metrics_dir": str(metrics_outdir),
         "export_manifest": export_manifest,
         "export_manifest_path": export_manifest.get("manifest_path"),

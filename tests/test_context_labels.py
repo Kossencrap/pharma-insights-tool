@@ -49,7 +49,9 @@ def test_matched_terms_serialization_includes_new_keys():
     sentence = "The phase 3 study reported improved overall survival and fewer adverse events."
 
     labels = classify_sentence_context(sentence)
-    _, _, _, _, matched, triggers = labels_to_columns(labels)
+    values = labels_to_columns(labels)
+    matched = values[4]
+    triggers = values[5]
 
     assert matched is not None
     assert "endpoint_terms" in matched
@@ -57,3 +59,16 @@ def test_matched_terms_serialization_includes_new_keys():
     assert triggers is not None
     trigger_list = json.loads(triggers)
     assert "study_context" in trigger_list
+
+
+def test_line_of_therapy_and_real_world_terms_detected():
+    sentence = "First-line therapy decisions now rely on real-world registry data for coverage."
+
+    labels = classify_sentence_context(sentence)
+
+    assert "first-line" in {term.lower() for term in labels.line_of_therapy_terms}
+    assert "real-world" in {term.lower() for term in labels.real_world_terms}
+    assert "coverage" in {term.lower() for term in labels.access_terms}
+    assert "line_of_therapy_terms" in labels.matched_terms
+    assert "real_world_terms" in labels.matched_terms
+    assert "access_terms" in labels.matched_terms

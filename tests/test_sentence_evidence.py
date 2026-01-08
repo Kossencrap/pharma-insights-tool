@@ -59,8 +59,9 @@ def _seed(db_path: Path) -> sqlite3.Connection:
         INSERT INTO sentence_events (
             doc_id, sentence_id, product_a, product_b,
             comparative_terms, relationship_types, risk_terms, study_context, matched_terms, context_rule_hits,
-            narrative_type, narrative_subtype, narrative_confidence
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            direction_type, product_a_role, product_b_role, direction_triggers,
+            narrative_type, narrative_subtype, narrative_confidence, section
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             "doc-new",
@@ -73,9 +74,14 @@ def _seed(db_path: Path) -> sqlite3.Connection:
             "trial",
             "ProductA vs ProductB",
             '["comparative_terms","risk_terms"]',
+            "alternative",
+            "favored",
+            "disfavored",
+            '["preferred_over"]',
             "comparative",
             "comparative_advantage",
             0.8,
+            "results",
         ),
     )
     con.execute(
@@ -83,8 +89,9 @@ def _seed(db_path: Path) -> sqlite3.Connection:
         INSERT INTO sentence_events (
             doc_id, sentence_id, product_a, product_b,
             comparative_terms, relationship_types, risk_terms, study_context, matched_terms, context_rule_hits,
-            narrative_type, narrative_subtype, narrative_confidence
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            direction_type, product_a_role, product_b_role, direction_triggers,
+            narrative_type, narrative_subtype, narrative_confidence, section
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             "doc-old",
@@ -97,9 +104,14 @@ def _seed(db_path: Path) -> sqlite3.Connection:
             "observational",
             "pair mention",
             '["study_context"]',
+            None,
+            None,
+            None,
+            None,
             "evidence",
             "clinical_trial",
             0.6,
+            "results",
         ),
     )
     con.commit()
@@ -117,6 +129,8 @@ def test_fetch_sentence_evidence_orders_and_filters(tmp_path: Path) -> None:
     assert rows[0].product_a_alias == "ProdA"
     assert rows[0].product_b_alias == "ProdB"
     assert "comparative_terms" in rows[0].context_rule_hits
+    assert rows[0].direction_type == "alternative"
+    assert rows[0].product_a_role == "favored"
 
     filtered = fetch_sentence_evidence(con, product_a="ProductA", pub_after="2023-12-31")
     assert len(filtered) == 1
@@ -126,6 +140,12 @@ def test_fetch_sentence_evidence_orders_and_filters(tmp_path: Path) -> None:
     assert len(narrative_filtered) == 1
     assert narrative_filtered[0].narrative_type == "evidence"
     assert narrative_filtered[0].narrative_subtype == "clinical_trial"
+
+    directional_filtered = fetch_sentence_evidence(
+        con, direction_type="alternative", direction_role="favored"
+    )
+    assert len(directional_filtered) == 1
+    assert directional_filtered[0].product_a_role == "favored"
 
 
 def test_serialize_sentence_evidence_includes_computed_fields(tmp_path: Path) -> None:
@@ -143,6 +163,8 @@ def test_serialize_sentence_evidence_includes_computed_fields(tmp_path: Path) ->
     assert serialized[0]["publication_date"] == "2024-02-01"
     assert serialized[1]["publication_date"] == "2023-12-15"
     assert "context_rule_hits" in serialized[0]
+    assert serialized[0]["direction_type"] == "alternative"
+    assert serialized[0]["product_a_role"] == "favored"
 
     # round-trip to CSV-like ordering stability
     keys = list(serialized[0].keys())

@@ -161,6 +161,7 @@ ________________________________________
 ________________________________________
 11. Phase 2 Narrative Structure & Change Attribution (definition)
 Summary lives in docs/phase2-narrative.md and will guide backlog epics.
+_Status 2026-01-05: narrative typing, directional roles, and change exports exist in code; backlog still needs KPI definitions, UI validation, and release criteria before we can call Phase 2 done._
 Purpose:
 •	Organize Phase 1 signals into explicit narratives with sentence-level evidence
 •	Track content changes over time with deterministic, auditable logic
@@ -172,6 +173,7 @@ Next actions:
 •	Add Phase 2 epics/spikes (narrative labels, BERT checkpoints, UI narrative cards)
 •	Extend functional checks/pipeline to cover narrative labeling + change attribution
 •	Define KPIs for narrative precision and minimum deltas for “significant shift”
+•	Track the three Phase 2 epics, KPI governance, and the release sign-off checklist in `docs/phase2-release-checklist.md`.
 ________________________________________
 12. MVP Definition (Strict)
 MVP is complete if:
@@ -210,4 +212,3 @@ ________________________________________
 “We do not predict outcomes.
 We reveal how the scientific and clinical narrative around products is evolving — with evidence.”
 ________________________________________
-

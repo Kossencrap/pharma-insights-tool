@@ -7,8 +7,12 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from src.analytics.weights import DocumentWeight
+# Avoid importing structuring models (which depends on pydantic) at import time.
+# These classes are only needed for typing, so lazy-import them via TYPE_CHECKING.
+from typing import TYPE_CHECKING
 
-from src.structuring.models import Document, Sentence
+if TYPE_CHECKING:  # pragma: no cover
+    from src.structuring.models import Document, Sentence
 
 CREATE_TABLES_SQL = [
     """
@@ -100,9 +104,18 @@ CREATE_TABLES_SQL = [
         study_context TEXT,
         matched_terms TEXT,
         context_rule_hits TEXT,
+        direction_type TEXT,
+        product_a_role TEXT,
+        product_b_role TEXT,
+        direction_triggers TEXT,
         narrative_type TEXT,
         narrative_subtype TEXT,
         narrative_confidence REAL,
+        claim_strength TEXT,
+        risk_posture TEXT,
+        section TEXT,
+        narrative_invariant_ok INTEGER,
+        narrative_invariant_reason TEXT,
         sentiment_label TEXT,
         sentiment_score REAL,
         sentiment_model TEXT,
@@ -324,6 +337,10 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         "narrative_type",
         "narrative_subtype",
         "narrative_confidence",
+        "direction_type",
+        "product_a_role",
+        "product_b_role",
+        "direction_triggers",
         "sentiment_label",
         "sentiment_score",
         "sentiment_model",
@@ -369,7 +386,16 @@ def _ensure_sentence_events_schema(conn: sqlite3.Connection) -> None:
         ("narrative_type", "TEXT"),
         ("narrative_subtype", "TEXT"),
         ("narrative_confidence", "REAL"),
+        ("claim_strength", "TEXT"),
+        ("risk_posture", "TEXT"),
+        ("section", "TEXT"),
+        ("narrative_invariant_ok", "INTEGER"),
+        ("narrative_invariant_reason", "TEXT"),
         ("context_rule_hits", "TEXT"),
+        ("direction_type", "TEXT"),
+        ("product_a_role", "TEXT"),
+        ("product_b_role", "TEXT"),
+        ("direction_triggers", "TEXT"),
     ]
     for column, ddl in optional_columns:
         if column not in existing:
@@ -549,7 +575,16 @@ def insert_sentence_events(
             Optional[str],
             Optional[str],
             Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[str],
             Optional[float],
+            Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[int],
+            Optional[str],
         ]
     ],
 ) -> None:
@@ -560,8 +595,10 @@ def insert_sentence_events(
         INSERT OR REPLACE INTO sentence_events (
             doc_id, sentence_id, product_a, product_b,
             comparative_terms, relationship_types, risk_terms, study_context, matched_terms, context_rule_hits,
-            narrative_type, narrative_subtype, narrative_confidence
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            direction_type, product_a_role, product_b_role, direction_triggers,
+            narrative_type, narrative_subtype, narrative_confidence, claim_strength, risk_posture, section,
+            narrative_invariant_ok, narrative_invariant_reason
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             (
@@ -575,9 +612,18 @@ def insert_sentence_events(
                 study_context,
                 matched_terms,
                 context_rule_hits,
+                direction_type,
+                product_a_role,
+                product_b_role,
+                direction_triggers,
                 narrative_type,
                 narrative_subtype,
                 narrative_confidence,
+                claim_strength,
+                risk_posture,
+                section,
+                narrative_invariant_ok,
+                narrative_invariant_reason,
             )
             for (
                 doc_id,
@@ -590,9 +636,18 @@ def insert_sentence_events(
                 study_context,
                 matched_terms,
                 context_rule_hits,
+                direction_type,
+                product_a_role,
+                product_b_role,
+                direction_triggers,
                 narrative_type,
                 narrative_subtype,
                 narrative_confidence,
+                claim_strength,
+                risk_posture,
+                section,
+                narrative_invariant_ok,
+                narrative_invariant_reason,
             ) in events
         ),
     )

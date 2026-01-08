@@ -7,7 +7,9 @@ src/analytics/evidence.py
 src/analytics/indication_extractor.py
 src/analytics/mention_extractor.py
 src/analytics/narrative_config.py
+src/analytics/narrative_kpis.py
 src/analytics/narratives.py
+src/analytics/sections.py
 src/analytics/sentiment.py
 src/analytics/time_series.py
 src/analytics/weights.py
@@ -27,10 +29,13 @@ src/structuring/models.py
 src/structuring/sentence_splitter.py
 src/utils/__init__.py
 src/utils/identifiers.py
+tests/test_check_narrative_kpis.py
 tests/test_cli_scripts.py
 tests/test_co_mentions_sentence_level.py
 tests/test_context_labels.py
+tests/test_evidence.py
 tests/test_export_batch.py
+tests/test_export_label_precision_sample.py
 tests/test_indication_extractor.py
 tests/test_ingestion.py
 tests/test_ingestion_runner.py
@@ -39,8 +44,11 @@ tests/test_mention_extractor.py
 tests/test_mentions_and_storage.py
 tests/test_mock_pipeline.py
 tests/test_narrative_config.py
+tests/test_narrative_kpis.py
 tests/test_narratives.py
+tests/test_sections.py
 tests/test_sentence_evidence.py
 tests/test_sentiment.py
 tests/test_structuring.py
 tests/test_time_series_metrics.py
+tests/test_view_labeled_sentences.py

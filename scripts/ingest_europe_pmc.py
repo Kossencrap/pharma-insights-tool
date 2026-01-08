@@ -193,6 +193,16 @@ def parse_args() -> argparse.Namespace:
         default=250,
         help="Emit a warning if the SQLite DB exceeds this size after ingestion.",
     )
+    parser.add_argument(
+        "--expand-query-aliases",
+        action="store_true",
+        help="Expand product names to all aliases defined in the product config when building the Europe PMC query.",
+    )
+    parser.add_argument(
+        "--require-all-products",
+        action="store_true",
+        help="Require every provided product group to appear in the Europe PMC query (AND combination).",
+    )
     return parser.parse_args()
 
 
@@ -228,6 +238,7 @@ def run_ingestion(
     conn = init_db(db_path) if db_path else None
 
     mention_extractor: MentionExtractor | None = None
+    product_dict: dict[str, list[str]] | None = None
     if product_config and product_config.exists():
         product_dict = load_product_config(product_config)
         mention_extractor = MentionExtractor(product_dict)
@@ -333,8 +344,36 @@ def run_ingestion(
     client = client or EuropePMCClient(**client_kwargs)
     splitter = splitter or SentenceSplitter()
 
+    expand_aliases = bool(getattr(args, "expand_query_aliases", False))
+    require_all_products = bool(getattr(args, "require_all_products", False))
+
+    def _query_terms_for(name: str) -> list[str]:
+        terms: list[str] = []
+        candidates = None
+        if expand_aliases and product_dict:
+            candidates = product_dict.get(name)
+        if not candidates:
+            candidates = [name]
+        seen: set[str] = set()
+        for candidate in candidates:
+            cleaned = candidate.strip()
+            if not cleaned:
+                continue
+            key = cleaned.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            terms.append(cleaned)
+        return terms
+
+    query_groups = [_query_terms_for(name) for name in product_names]
+    if not any(query_groups):
+        query_groups = [[name] for name in product_names]
+
     query_str = client.build_drug_query(
         product_names=product_names,
+        product_name_groups=query_groups,
+        require_all_groups=require_all_products,
         require_abstract=True,
         from_date=effective_from_date,
         to_date=args.to_date,

@@ -1,0 +1,62 @@
+{
+  "title": [
+    "title",
+    "article title",
+    "running title"
+  ],
+  "abstract": [
+    "abstract",
+    "summary",
+    "synopsis",
+    "précis",
+    "precis",
+    "executive summary"
+  ],
+  "introduction": [
+    "introduction",
+    "background",
+    "context",
+    "rationale",
+    "problem statement",
+    "aims",
+    "aim",
+    "objectives",
+    "objective",
+    "purpose",
+    "purposes"
+  ],
+  "methods": [
+    "methods",
+    "methodology",
+    "materials and methods",
+    "research design",
+    "patients and methods",
+    "intervention",
+    "interventions",
+    "statistical analysis"
+  ],
+  "results": [
+    "results",
+    "findings",
+    "outcomes",
+    "data",
+    "methods and results",
+    "results and relevance",
+    "main outcomes",
+    "results and measures"
+  ],
+  "discussion": [
+    "discussion",
+    "interpretation",
+    "analysis",
+    "implications"
+  ],
+  "conclusion": [
+    "conclusion",
+    "conclusions",
+    "summary and conclusions",
+    "concluding remarks",
+    "conclusion and relevance",
+    "conclusions and relevance"
+  ]
+}

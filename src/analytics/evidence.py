@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from typing import List, Mapping, Optional, Sequence
+from datetime import datetime
+from typing import Dict, List, Mapping, Optional, Sequence
 
+from src.analytics.sections import normalize_section
 from src.analytics.weights import STUDY_TYPE_ALIASES
 
 
@@ -36,6 +38,10 @@ class SentenceEvidence:
     matched_terms: Optional[str]
     context_rule_hits: tuple[str, ...] = ()
     indications: tuple[str, ...] = ()
+    direction_type: Optional[str] = None
+    product_a_role: Optional[str] = None
+    product_b_role: Optional[str] = None
+    direction_triggers: tuple[str, ...] = ()
     narrative_type: Optional[str] = None
     narrative_subtype: Optional[str] = None
     narrative_confidence: Optional[float] = None
@@ -94,6 +100,10 @@ class SentenceEvidence:
             "matched_terms": self.matched_terms,
             "context_rule_hits": list(self.context_rule_hits),
             "indications": list(self.indications),
+            "direction_type": self.direction_type,
+            "product_a_role": self.product_a_role,
+            "product_b_role": self.product_b_role,
+            "direction_triggers": list(self.direction_triggers),
             "narrative_type": self.narrative_type,
             "narrative_subtype": self.narrative_subtype,
             "narrative_confidence": self.narrative_confidence,
@@ -119,6 +129,8 @@ def fetch_sentence_evidence(
     pub_after: Optional[str] = None,
     narrative_type: Optional[str] = None,
     narrative_subtype: Optional[str] = None,
+    direction_type: Optional[str] = None,
+    direction_role: Optional[str] = None,
     limit: int = 200,
 ) -> List[SentenceEvidence]:
     columns = {
@@ -202,9 +214,13 @@ def fetch_sentence_evidence(
                se.comparative_terms,
                se.relationship_types,
                se.risk_terms,
-        se.study_context,
-        se.matched_terms,
-        se.context_rule_hits,
+               se.study_context,
+               se.matched_terms,
+               se.context_rule_hits,
+               se.direction_type,
+               se.product_a_role,
+               se.product_b_role,
+               se.direction_triggers,
         {indication_expr} AS indications,
                {narrative_type_expr},
                {narrative_subtype_expr},
@@ -244,12 +260,21 @@ def fetch_sentence_evidence(
     if narrative_subtype:
         query.append("AND se.narrative_subtype = ?")
         params.append(narrative_subtype)
+    if direction_type:
+        query.append("AND se.direction_type = ?")
+        params.append(direction_type)
+    if direction_role:
+        query.append(
+            "AND (se.product_a_role = ? OR se.product_b_role = ?)"
+        )
+        params.extend([direction_role, direction_role])
 
     query.append("ORDER BY d.publication_date DESC, cms.doc_id, cms.sentence_id LIMIT ?")
     params.append(limit)
 
     cur = conn.execute("\n".join(query), params)
     rows: List[SentenceEvidence] = []
+    last_section_by_doc: Dict[str, str] = {}
     for row in cur.fetchall():
         (
             doc_id,
@@ -274,6 +299,10 @@ def fetch_sentence_evidence(
             study_context,
             matched_terms,
             context_rule_hits_raw,
+            direction_type_val,
+            product_a_role_val,
+            product_b_role_val,
+            direction_triggers_raw,
             indication_list,
             narrative_type_val,
             narrative_subtype_val,
@@ -322,6 +351,28 @@ def fetch_sentence_evidence(
                     if item.strip()
                 )
 
+        direction_triggers: tuple[str, ...] = ()
+        if direction_triggers_raw:
+            try:
+                parsed_dir = json.loads(direction_triggers_raw)
+                if isinstance(parsed_dir, list):
+                    direction_triggers = tuple(str(item) for item in parsed_dir)
+            except json.JSONDecodeError:
+                direction_triggers = tuple(
+                    item.strip()
+                    for item in (direction_triggers_raw or "").split(",")
+                    if item.strip()
+                )
+
+        canonical_section, _, derived = normalize_section(section, sentence_text)
+        if canonical_section and canonical_section not in {"abstract", "title"}:
+            last_section_by_doc[doc_id] = canonical_section
+        elif derived and canonical_section:
+            last_section_by_doc[doc_id] = canonical_section
+        elif canonical_section in {None, "abstract", "title"} and doc_id in last_section_by_doc:
+            canonical_section = last_section_by_doc[doc_id]
+        section_value = canonical_section or section
+
         rows.append(
             SentenceEvidence(
                 doc_id=doc_id,
@@ -332,7 +383,7 @@ def fetch_sentence_evidence(
                 product_b_alias=product_b_alias,
                 count=int(count or 0),
                 sentence_text=sentence_text,
-                section=section,
+                section=section_value,
                 sent_index=sent_index,
                 publication_date=publication_date,
                 journal=journal,
@@ -344,6 +395,10 @@ def fetch_sentence_evidence(
                 matched_terms=matched_terms,
                 context_rule_hits=context_rules,
                 indications=indications,
+                direction_type=direction_type_val,
+                product_a_role=product_a_role_val,
+                product_b_role=product_b_role_val,
+                direction_triggers=direction_triggers,
                 narrative_type=narrative_type_val,
                 narrative_subtype=narrative_subtype_val,
                 narrative_confidence=narrative_confidence_val,
@@ -371,6 +426,50 @@ def serialize_sentence_evidence(
     ]
 
 
+@dataclass(frozen=True)
+class NarrativeEvidenceCard:
+    narrative_type: str
+    narrative_subtype: Optional[str]
+    bucket_start: Optional[str]
+    current_count: Optional[float]
+    wow_change: Optional[float]
+    z_score: Optional[float]
+    change_status: Optional[str]
+    delta_count: Optional[float]
+    delta_ratio: Optional[float]
+    reference_avg: Optional[float]
+    evidence: tuple[SentenceEvidence, ...]
+
+    @property
+    def evidence_total_weight(self) -> float:
+        return sum(evidence.evidence_weight for evidence in self.evidence)
+
+    def to_dict(
+        self,
+        *,
+        study_weight_lookup: Mapping[str, float] | None = None,
+        include_confidence: bool = True,
+    ) -> dict:
+        return {
+            "narrative_type": self.narrative_type,
+            "narrative_subtype": self.narrative_subtype,
+            "bucket_start": self.bucket_start,
+            "current_count": self.current_count,
+            "wow_change": self.wow_change,
+            "z_score": self.z_score,
+            "change_status": self.change_status,
+            "delta_count": self.delta_count,
+            "delta_ratio": self.delta_ratio,
+            "reference_avg": self.reference_avg,
+            "evidence_total_weight": self.evidence_total_weight,
+            "evidence": serialize_sentence_evidence(
+                self.evidence,
+                study_weight_lookup=study_weight_lookup,
+                include_confidence=include_confidence,
+            ),
+        }
+
+
 def resolve_study_weight(
     study_type: str | None, study_weight_lookup: Mapping[str, float] | None
 ) -> float | None:
@@ -387,3 +486,64 @@ def explain_confidence(
     evidence: SentenceEvidence, study_weight_lookup: Mapping[str, float] | None = None
 ) -> dict:
     return evidence.confidence_breakdown(study_weight_lookup)
+
+
+def _serialize_bucket(value: object | None) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    try:
+        iso_method = getattr(value, "isoformat", None)
+        if callable(iso_method):
+            return iso_method()
+    except Exception:
+        pass
+    return str(value)
+
+
+def build_narrative_card(
+    *,
+    narrative_type: str | None,
+    narrative_subtype: str | None,
+    metrics_row: Mapping[str, object] | None,
+    change_row: Mapping[str, object] | None,
+    evidence_rows: Sequence[SentenceEvidence],
+    max_sentences: int = 3,
+) -> NarrativeEvidenceCard:
+    if not evidence_rows:
+        raise ValueError("evidence_rows must include at least one SentenceEvidence instance.")
+
+    sorted_evidence = sorted(
+        evidence_rows, key=lambda row: row.evidence_weight, reverse=True
+    )
+    top_evidence = tuple(sorted_evidence[: max(1, max_sentences)])
+
+    resolved_type = narrative_type or top_evidence[0].narrative_type or "unknown"
+    resolved_subtype = narrative_subtype or top_evidence[0].narrative_subtype
+
+    metrics = metrics_row or {}
+    change = change_row or {}
+
+    return NarrativeEvidenceCard(
+        narrative_type=resolved_type,
+        narrative_subtype=resolved_subtype,
+        bucket_start=_serialize_bucket(metrics.get("bucket_start")),
+        current_count=_coerce_float(metrics.get("count")),
+        wow_change=_coerce_float(metrics.get("wow_change")),
+        z_score=_coerce_float(metrics.get("z_score")),
+        change_status=(change.get("status") or None),
+        delta_count=_coerce_float(change.get("delta_count")),
+        delta_ratio=_coerce_float(change.get("delta_ratio")),
+        reference_avg=_coerce_float(change.get("reference_avg")),
+        evidence=top_evidence,
+    )
+
+
+def _coerce_float(value: object | None) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

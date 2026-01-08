@@ -95,6 +95,8 @@ class EuropePMCClient:
     def build_drug_query(
         *,
         product_names: List[str],
+        product_name_groups: Optional[List[List[str]]] = None,
+        require_all_groups: bool = False,
         require_abstract: bool = True,
         from_date: Optional[date] = None,
         to_date: Optional[date] = None,
@@ -114,17 +116,37 @@ class EuropePMCClient:
         (TITLE:"dupilumab" OR ABSTRACT:"dupilumab" OR TITLE:"Dupixent" OR ABSTRACT:"Dupixent")
         AND FIRST_PDATE:[2024-01-01 TO 2025-12-31]
         """
-        if not product_names:
+        groups = product_name_groups or [product_names]
+        if not any(groups):
             raise ValueError("product_names must be non-empty")
 
-        # Search in title/abstract for each name (case-insensitive on backend).
-        name_clauses: List[str] = []
-        for name in product_names:
-            safe = name.replace('"', '\\"')
-            name_clauses.append(f'TITLE:"{safe}"')
-            name_clauses.append(f'ABSTRACT:"{safe}"')
+        def _clauses(terms: List[str]) -> List[str]:
+            clauses: List[str] = []
+            for term in terms:
+                safe = term.replace('"', '\\"')
+                clauses.append(f'TITLE:"{safe}"')
+                clauses.append(f'ABSTRACT:"{safe}"')
+            return clauses
 
-        q = "(" + " OR ".join(name_clauses) + ")"
+        if require_all_groups and len(groups) > 1:
+            group_exprs: List[str] = []
+            for group in groups:
+                if not group:
+                    continue
+                clauses = _clauses(group)
+                if clauses:
+                    group_exprs.append("(" + " OR ".join(clauses) + ")")
+            if not group_exprs:
+                raise ValueError("product_names must be non-empty")
+            q = " AND ".join(group_exprs)
+        else:
+            flattened: List[str] = []
+            for group in groups:
+                flattened.extend(group)
+            clauses = _clauses(flattened)
+            if not clauses:
+                raise ValueError("product_names must be non-empty")
+            q = "(" + " OR ".join(clauses) + ")"
 
         # Optional date range
         if from_date or to_date:

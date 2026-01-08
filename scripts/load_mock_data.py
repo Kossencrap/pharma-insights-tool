@@ -290,9 +290,14 @@ def main() -> None:
         total_docs += 1
 
     conn.commit()
+    sentiment_path = args.sentiment_output
     if sentiment_records:
-        _write_sentiment_records(args.sentiment_output, sentiment_records)
-        print(f"Wrote {len(sentiment_records)} sentiment-ready rows to {args.sentiment_output}")
+        _write_sentiment_records(sentiment_path, sentiment_records)
+        print(f"Wrote {len(sentiment_records)} sentiment-ready rows to {sentiment_path}")
+    else:
+        sentiment_path.parent.mkdir(parents=True, exist_ok=True)
+        sentiment_path.write_text("", encoding="utf-8")
+        print(f"No sentiment-ready rows generated; created empty file at {sentiment_path}")
 
     print(
         f"Loaded {total_docs} mock documents, {total_sentences} sentences, and {total_mentions} mentions into {args.db}."

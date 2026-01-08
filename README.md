@@ -3,7 +3,7 @@
 Product-centric scientific and narrative intelligence
 based on biomedical literature.
 
-> **Phase status:** Phase 1 MVP is complete; see `phase1-status.md` for the current capabilities and remaining hardening work.
+> **Status (2026-01-05):** Phase 1 MVP remains production-ready; Phase 2 narrative/directional features are implemented in code but still tracking validation and KPI work (see `phase1-status.md` + `docs/phase2-narrative.md`).
 
 ## Project structure
 
@@ -216,7 +216,12 @@ Running `python -m scripts.aggregate_metrics` now emits
 flag each narrative subtype as `new`, `disappearing`, or a significant increase/
 decrease based on the most recent bucket versus the prior lookback window. The
 Streamlit dashboard exposes this under “Narrative change since last review,” so
-re-running the aggregator is all that’s needed to refresh the change view.
+re-running the aggregator is all that’s needed to refresh the change view. The
+aggregator also writes `narratives_weighted_{w|m}.parquet` (study-type weighted
+counts), `narratives_dimensions_{w|m}.parquet` (narrative × claim strength ×
+risk posture), and `risk_signals_{w|m}.parquet` (safety/concern ratios per
+product pair) so you can analyze raw, weighted, and omission-driven trends with
+the same deterministic pipeline.
 
 To persist sentiment labels back into SQLite, include `--db`:
 

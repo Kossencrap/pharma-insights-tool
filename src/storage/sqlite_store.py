@@ -590,6 +590,15 @@ def insert_sentence_events(
 ) -> None:
     """Persist sentence-level context labels for product pairs."""
 
+    def _normalize_event_row(event: Tuple) -> Tuple:
+        row = list(event)
+        expected = 22
+        if len(row) < expected:
+            row.extend([None] * (expected - len(row)))
+        elif len(row) > expected:
+            row = row[:expected]
+        return tuple(row)
+
     conn.executemany(
         """
         INSERT OR REPLACE INTO sentence_events (
@@ -600,56 +609,7 @@ def insert_sentence_events(
             narrative_invariant_ok, narrative_invariant_reason
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (
-            (
-                doc_id,
-                sentence_id,
-                product_a,
-                product_b,
-                comparative_terms,
-                relationship_types,
-                risk_terms,
-                study_context,
-                matched_terms,
-                context_rule_hits,
-                direction_type,
-                product_a_role,
-                product_b_role,
-                direction_triggers,
-                narrative_type,
-                narrative_subtype,
-                narrative_confidence,
-                claim_strength,
-                risk_posture,
-                section,
-                narrative_invariant_ok,
-                narrative_invariant_reason,
-            )
-            for (
-                doc_id,
-                sentence_id,
-                product_a,
-                product_b,
-                comparative_terms,
-                relationship_types,
-                risk_terms,
-                study_context,
-                matched_terms,
-                context_rule_hits,
-                direction_type,
-                product_a_role,
-                product_b_role,
-                direction_triggers,
-                narrative_type,
-                narrative_subtype,
-                narrative_confidence,
-                claim_strength,
-                risk_posture,
-                section,
-                narrative_invariant_ok,
-                narrative_invariant_reason,
-            ) in events
-        ),
+        (_normalize_event_row(event) for event in events),
     )
 
 

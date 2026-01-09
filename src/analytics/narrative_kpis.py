@@ -106,12 +106,9 @@ def _load_kpis_from_disk(path: Path) -> NarrativeKPISpec:
         reference_file=str(competitive_data["reference_file"]),
     )
 
-    invariants_data = data.get("narrative_invariants", {})
-    if "min_pass_rate" not in invariants_data:
-        raise ValueError("Narrative KPI config must include narrative_invariants.min_pass_rate.")
-    narrative_invariants = NarrativeInvariantSpec(
-        min_pass_rate=float(invariants_data["min_pass_rate"])
-    )
+    invariants_data = data.get("narrative_invariants") or {}
+    min_pass_rate = float(invariants_data.get("min_pass_rate", 1.0))
+    narrative_invariants = NarrativeInvariantSpec(min_pass_rate=min_pass_rate)
 
     return NarrativeKPISpec(
         label_precision=label_precision,

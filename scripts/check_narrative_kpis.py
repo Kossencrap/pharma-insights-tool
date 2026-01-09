@@ -66,10 +66,13 @@ def _ensure_label_precision_sample(
     correct_flags: List[bool] = []
     for row in rows:
         narrative_type = (row.get("narrative_type") or "").strip().lower()
+        narrative_subtype = (row.get("narrative_subtype") or "").strip().lower()
         is_correct = _parse_bool(row.get("is_correct"), context=row.get("sentence_id", "unknown"))
         if not narrative_type:
             raise SystemExit(f"Row '{row}' missing narrative_type.")
         totals.setdefault(narrative_type, []).append(is_correct)
+        if narrative_subtype:
+            totals.setdefault(narrative_subtype, []).append(is_correct)
         correct_flags.append(is_correct)
 
     overall_precision = sum(correct_flags) / len(correct_flags)

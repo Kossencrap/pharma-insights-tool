@@ -78,6 +78,16 @@ COMPARATIVE_REGEXES = [
     re.compile(r"\b(?:less|more|higher|lower)\s+[a-z0-9\- ]{1,40}\s+than\b", flags=re.IGNORECASE),
     re.compile(r"\bnot\s+significantly\s+[a-z0-9\- ]{1,40}\s+than\b", flags=re.IGNORECASE),
 ]
+QUALITATIVE_COMPARATIVE_PATTERNS = [
+    re.compile(
+        r"\bwas\s+(?:more|less|equally|as|similarly)\s+(?:effective|efficacious|beneficial|safe|tolerated|advantageous)[^.;]{0,60}\bthan\b",
+        flags=re.IGNORECASE,
+    ),
+    re.compile(r"\bwas\s+(?:superior|inferior)\s+to\b", flags=re.IGNORECASE),
+    re.compile(r"\bwas\s+(?:similar|comparable)\s+to\b", flags=re.IGNORECASE),
+    re.compile(r"\bwas\s+non[-\s]?inferior\s+to\b", flags=re.IGNORECASE),
+    re.compile(r"\bwas\s+as\s+(?:effective|beneficial|safe)\s+as\b", flags=re.IGNORECASE),
+]
 GROUP_CONTRAST_TERMS = (" group", " arm", " cohort", " patients receiving ", " patients treated with ")
 CONTRAST_OPERATORS = {
     " than ",
@@ -220,6 +230,8 @@ EQUIVALENCE_TERMS = {
 OUTCOME_KEYWORDS = {
     "mortality",
     "death",
+    "outcome",
+    "outcomes",
     "hospitalization",
     "hospitalisation",
     "readmission",
@@ -395,14 +407,20 @@ def _has_contrast_operator(text_lower: str) -> bool:
 def _has_comparative_anchor(
     text_lower: str, labels: Optional[SentenceContextLabels]
 ) -> bool:
-    if labels and labels.comparative_terms:
-        return True
+    if labels:
+        if labels.comparative_terms:
+            return True
+        if getattr(labels, "direction_type", None):
+            return True
     if not text_lower:
         return False
     for phrase in COMPARATIVE_LEXICAL_ANCHORS:
         if phrase in text_lower:
             return True
     for pattern in COMPARATIVE_REGEXES:
+        if pattern.search(text_lower):
+            return True
+    for pattern in QUALITATIVE_COMPARATIVE_PATTERNS:
         if pattern.search(text_lower):
             return True
     return _has_group_contrast(text_lower)
@@ -638,6 +656,8 @@ def _legacy_classification(
     normalized_section = section.strip().lower() if section else None
     methods_section = normalized_section == "methods"
     claim_strength = _infer_claim_strength(labels, sentiment_label)
+    if not claim_strength and sentiment_label and has_anchor:
+        claim_strength = "exploratory"
     text_lower = text.lower() if text else ""
     has_anchor = _has_comparative_anchor(text_lower, labels) if text_lower else False
 
@@ -651,7 +671,8 @@ def _legacy_classification(
                 "safety", subtype, 0.9, risk_posture=posture, claim_strength=claim_strength
             )
 
-    if labels.comparative_terms and not methods_section:
+    can_be_comparative = bool(labels.comparative_terms) or has_anchor
+    if can_be_comparative and not methods_section:
         subtype = "comparative_efficacy"
         sentiment_map = {
             SentimentLabel.POSITIVE.value: "comparative_efficacy_advantage",

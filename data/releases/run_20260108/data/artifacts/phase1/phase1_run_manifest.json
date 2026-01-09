@@ -1,0 +1,201 @@
+{
+  "phase": "phase1",
+  "products": [
+    "enalapril",
+    "sacubitril_valsartan"
+  ],
+  "from_date": "2022-01-01",
+  "to_date": null,
+  "db": "data\\europepmc.sqlite",
+  "artifacts_dir": "data\\artifacts\\phase1",
+  "structured_path": "data\\processed\\enalapril_structured.jsonl",
+  "sentiment_events_path": "data\\processed\\enalapril_sentence_events_for_sentiment.jsonl",
+  "metrics_dir": "data\\artifacts\\phase1\\metrics",
+  "export_manifest": {
+    "run_id": "run_20260108",
+    "run_at": "2026-01-08T18:35:32.765994+00:00",
+    "db_path": "data\\europepmc.sqlite",
+    "export_root": "data\\artifacts\\phase1\\exports",
+    "aggregate_exports": {
+      "documents": {
+        "W": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\documents_w_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\documents_w_run_20260108.parquet",
+          "rows": 492
+        },
+        "M": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\documents_m_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\documents_m_run_20260108.parquet",
+          "rows": 147
+        }
+      },
+      "mentions": {
+        "W": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\mentions_w_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\mentions_w_run_20260108.parquet",
+          "rows": 328
+        },
+        "M": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\mentions_m_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\mentions_m_run_20260108.parquet",
+          "rows": 98
+        }
+      },
+      "co_mentions": {
+        "W": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_w_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_w_run_20260108.parquet",
+          "rows": 164
+        },
+        "M": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_m_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_m_run_20260108.parquet",
+          "rows": 49
+        }
+      },
+      "co_mentions_weighted": {
+        "W": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_weighted_w_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_weighted_w_run_20260108.parquet",
+          "rows": 164
+        },
+        "M": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_weighted_m_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\co_mentions_weighted_m_run_20260108.parquet",
+          "rows": 49
+        }
+      },
+      "narratives": {
+        "W": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_w_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_w_run_20260108.parquet",
+          "rows": 104
+        },
+        "M": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_m_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_m_run_20260108.parquet",
+          "rows": 83
+        }
+      },
+      "narratives_change": {
+        "W": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_change_w_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_change_w_run_20260108.parquet",
+          "rows": 9
+        },
+        "M": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_change_m_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\narratives_change_m_run_20260108.parquet",
+          "rows": 9
+        }
+      },
+      "directional": {
+        "W": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\directional_w_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\directional_w_run_20260108.parquet",
+          "rows": 46
+        },
+        "M": {
+          "csv": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\directional_m_run_20260108.csv",
+          "parquet": "data\\artifacts\\phase1\\exports\\aggregates\\run_20260108\\directional_m_run_20260108.parquet",
+          "rows": 44
+        }
+      }
+    },
+    "evidence_export": {
+      "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\evidence\\sentence_evidence_run_20260108.csv",
+      "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\evidence\\sentence_evidence_run_20260108.parquet",
+      "jsonl": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\evidence\\sentence_evidence_run_20260108.jsonl",
+      "rows": 300
+    },
+    "raw_exports": {
+      "documents": {
+        "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\documents.csv",
+        "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\documents.parquet",
+        "rows": 314
+      },
+      "document_weights": {
+        "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\document_weights.csv",
+        "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\document_weights.parquet",
+        "rows": 314
+      },
+      "sentences": {
+        "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\sentences.csv",
+        "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\sentences.parquet",
+        "rows": 4068
+      },
+      "product_mentions": {
+        "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\product_mentions.csv",
+        "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\product_mentions.parquet",
+        "rows": 2416
+      },
+      "co_mentions": {
+        "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\co_mentions.csv",
+        "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\co_mentions.parquet",
+        "rows": 314
+      },
+      "co_mentions_sentences": {
+        "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\co_mentions_sentences.csv",
+        "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\co_mentions_sentences.parquet",
+        "rows": 720
+      },
+      "sentence_events": {
+        "csv": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\sentence_events.csv",
+        "parquet": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\raw\\sentence_events.parquet",
+        "rows": 480
+      }
+    },
+    "consistency": [
+      {
+        "metric": "documents_W",
+        "table_count": 314,
+        "aggregated_count": 314,
+        "consistent": true
+      },
+      {
+        "metric": "documents_M",
+        "table_count": 314,
+        "aggregated_count": 314,
+        "consistent": true
+      },
+      {
+        "metric": "mentions_W",
+        "table_count": 2416,
+        "aggregated_count": 2416,
+        "consistent": true
+      },
+      {
+        "metric": "mentions_M",
+        "table_count": 2416,
+        "aggregated_count": 2416,
+        "consistent": true
+      },
+      {
+        "metric": "sentences",
+        "table_count": 4068,
+        "aggregated_count": null,
+        "consistent": true
+      }
+    ],
+    "manifest_path": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\manifest.json"
+  },
+  "export_manifest_path": "data\\artifacts\\phase1\\exports\\runs\\run_20260108\\manifest.json",
+  "phase2_artifacts": {
+    "latest_sentence_events": "data\\processed\\latest_sentence_events.jsonl",
+    "narratives_label_kpi_csv": "data\\artifacts\\kpi\\narratives_label_kpi.csv",
+    "narratives_unlabeled_csv": "data\\artifacts\\kpi\\narratives_unlabeled.csv",
+    "kpi_config": {
+      "path": "C:\\Users\\sebas\\Documents\\phase2_pharma_insights\\config\\narratives_kpis.json",
+      "sha256": "d5dc9a47a35171324131f9c5170d45bc8b75e33a35194de1aa1998153f9b9072"
+    }
+  },
+  "limits": {
+    "max_records": 5000,
+    "event_limit": 7500,
+    "evidence_limit": 300,
+    "max_sentences_per_doc": 400,
+    "max_co_mentions_per_sentence": 50,
+    "db_size_warn_mb": 250,
+    "require_comentions": false
+  }
+}

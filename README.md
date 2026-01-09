@@ -157,12 +157,24 @@ python scripts/run_phase1_pipeline.py \
   --manifest-path data/artifacts/phase1/phase1_run_manifest.json
 ```
 
-Artifacts (metrics, evidence exports, manifest) are written to `data/artifacts/phase1` by default. The manifest includes input flags, guardrail limits, and pointers to export folders for verification.
+Artifacts (metrics, evidence exports, manifest) are written to `data/artifacts/phase1` by default. The manifest includes input flags, guardrail limits, pointers to export folders, and a `phase2_artifacts` block that links the reviewer evidence and KPI assets referenced in the Phase 2 release checklist:
+- `data/processed/latest_sentence_events.jsonl` — canonical labeled sentences for downstream review tooling
+- `data/artifacts/kpi/narratives_label_kpi.csv` — reviewer-annotated KPI sample (with precision outcomes)
+- `data/artifacts/kpi/narratives_unlabeled.csv` — unlabeled/audit sample exported alongside KPIs
+- `config/narratives_kpis.json` + SHA-256 hash — explicit config reference for the KPI validator
 
 Guardrails:
 - `--max-sentences-per-doc` (default 400) skips sentences beyond the cap per document
 - `--max-co-mentions-per-sentence` (default 50) drops excessive co-mention pairs per sentence
 - `--db-size-warn-mb` (default 250) emits warnings when SQLite grows too large
+
+### Co-mention-only guardrail runs
+Phase 2 narrative QA often needs strictly head-to-head sentences. Pass `--require-comentions`
+to either `scripts/ingest_europe_pmc.py` or `scripts/run_phase1_pipeline.py` to drop any
+documents that never produced a sentence-level co-mention pair. This reduces SQLite size,
+speeds up labeling, and ensures `sentence_events` only contains relevant comparisons. The flag
+can also be toggled from PowerShell (see `scripts/phase2_sentiment_refresh.ps1`) by setting
+`$env:PHARMA_REQUIRE_COMENTIONS = 1` before the commands that need the guardrail. Clear the variable before running `python -m pytest` or other workflows that assume default behavior.
 
 ## Running ingestion locally
 Use the CLI runner to pull a small batch of Europe PMC results and emit both raw and structured outputs:
@@ -209,6 +221,14 @@ the required context signals (e.g., comparative terms, risk phrases), optional
 sentiment constraints, and a confidence score. See `docs/phase2-narrative.md`
 for guidance on designing new rules and how they flow through
 `scripts/label_sentence_events.py`, the SQLite schema, and the dashboards.
+
+Sentences must pass deterministic guardrails before classification: headings,
+objectives, methods, baseline descriptors, utilization-only lines, and pure
+incidence listings are dropped upfront, and canonical section gating limits
+comparative/safety/efficacy/concern/evidence narratives to RESULTS/CONCLUSION/
+DISCUSSION (positioning/access may also use INTRODUCTION). Utilization or
+incidence statements that survive the text filters are force-routed to the
+`evidence_real_world` narrative so reviewer exports exclude them automatically.
 
 ### Narrative change view
 Running `python -m scripts.aggregate_metrics` now emits
@@ -261,6 +281,27 @@ python scripts/ingest_europe_pmc.py -p "aspirin" --no-proxy
 # Override proxies explicitly (repeat --proxy for each scheme)
 python scripts/ingest_europe_pmc.py -p "aspirin" --proxy "https=https://proxy.example:8080" --proxy "http=http://proxy.example:8080"
 ```
+
+### Packaging Phase 2 release artifacts
+Use the helper script to bundle everything the manifest references (Phase 1 manifest, latest sentence events, KPI CSVs, change exports, KPI config with SHA-256) into a single folder for tagging or ticket attachments:
+
+```powershell
+py scripts/package_phase2_release.py `
+    --manifest data/artifacts/phase1/phase1_run_manifest.json `
+    --output data/releases/run_20260108
+```
+
+The script mirrors the repository layout under the chosen output directory and writes `release_artifacts.json` with the copied file list plus hashes for audit.
+
+Generate a Markdown snippet you can paste into release notes:
+
+```powershell
+py scripts/generate_release_notes.py `
+    --bundle data/releases/run_20260108 `
+    --output data/releases/run_20260108/release_notes.md
+```
+
+This reads `release_artifacts.json` and produces a table (artifact path + SHA-256) ready to drop into the release ticket.
 
 ## Phase 1 known limitations
 - No causal inference; outputs are descriptive only.

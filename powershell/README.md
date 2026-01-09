@@ -29,7 +29,7 @@ Standaard acties:
 ### Handige vlaggen
 
 - `-PythonExe` – kies een andere Python-binary, bijv. `python` i.p.v. `py`.
-- `-DataRoot` – wijzig het pad waar de tijdelijke database wordt opgeslagen.
+- `-DataRoot` – wijzig het pad waar de tijdelijke database/metrics worden opgeslagen (standaard `data/powershell-checks`). Gebruik dezelfde root als je release-artifacten (bijv. `-DataRoot data`) wanneer je de Phase 2 KPI’s wilt valideren zodat `scripts/check_narrative_kpis.py` dezelfde `data/artifacts/...`-paden ziet als in `config/narratives_kpis.json`.
 - `-Products` – pas de lijst met zoektermen aan (array), bijv. `-Products "aspirin","ibuprofen"`.
 - `-SkipPytests` – sla de `pytest`-stap over.
 - `-SkipNetworkSteps` – sla ingestie én downstream queries over (handig offline).

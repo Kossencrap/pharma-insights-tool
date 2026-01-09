@@ -37,6 +37,13 @@ Phase 2 organizes Phase-1 signals into explicit narratives and records what cont
 - Every labeled sentence also carries a lightweight `claim_strength` tier (`exploratory`, `suggestive`, `confirmatory`) derived from lexical/statistical cues and study context. This allows dashboards to compare raw narrative volume versus evidence-weighted or claim-strength-filtered views without changing the deterministic pipeline.
 - Aggregations now ship three additional exports per run: `narratives_weighted_{w|m}.parquet` (study-type weighted counts), `narratives_dimensions_{w|m}.parquet` (narrative × posture × claim strength grids), and `risk_signals_{w|m}.parquet` (per-pair safety/concern ratios) so omission or dilution trends can be monitored alongside raw change status.
 
+### Guardrail ingestion mode
+Use `--require-comentions` on `scripts/ingest_europe_pmc.py` (and the Phase 1 pipeline wrapper) when you
+need to enforce true head-to-head comparisons. With the flag enabled, ingestion only persists documents
+that produced at least one sentence containing both products in the cohort, so Phase 2 guardrails, KPI
+checks, and reviewer exports stay focused on co-mention evidence. The PowerShell helpers set
+`PHARMA_REQUIRE_COMENTIONS=1` to flip this mode on without editing every command.
+
 ## Explicitly out of scope
 - Clinical decision support, outcome prediction, or causal claims.
 - Generative summaries without direct sentence references.

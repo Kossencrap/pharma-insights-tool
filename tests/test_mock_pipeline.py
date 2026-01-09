@@ -98,7 +98,7 @@ def test_mock_data_pipeline(tmp_path: Path) -> None:
                 "SELECT DISTINCT narrative_type FROM sentence_events WHERE narrative_type IS NOT NULL"
             )
         }
-        assert {"comparative", "positioning", "safety"}.issubset(narratives)
+        assert {"comparative", "positioning", "evidence"}.issubset(narratives)
 
         sentiments = {
             row[0]

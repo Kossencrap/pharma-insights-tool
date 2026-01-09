@@ -26,7 +26,7 @@ python scripts/run_phase1_pipeline.py \
 Artifacts land under `data/artifacts/phase1/`:
 - `metrics/`: time-bucketed aggregates for the dashboard
 - `exports/`: raw tables, aggregates, and evidence with confidence breakdowns
-- `phase1_run_manifest.json`: pipeline manifest with inputs, limits, and export paths
+- `phase1_run_manifest.json`: pipeline manifest with inputs, limits, export pointers, and a `phase2_artifacts` section that records Phase 2 reviewer evidence (`data/processed/latest_sentence_events.jsonl`), KPI CSVs (`data/artifacts/kpi/...`), and the SHA-256 hash of `config/narratives_kpis.json` for release traceability
 
 ### Guardrails and limits
 - `--max-sentences-per-doc` (default 400): skip extra sentences per document

@@ -339,12 +339,15 @@ function Run-NarrativeKpiChecks {
 
     $dbPath = Join-Path $DataRoot "europepmc.sqlite"
     $metricsDir = Join-Path $DataRoot "metrics"
+    $kpiDataRoot = $RepoRoot
+    $kpiConfigPath = Join-Path $RepoRoot "config/narratives_kpis.json"
     Invoke-ExternalCommand -Executable $PythonExe -Arguments @(
         $scriptPath,
         "--db", $dbPath,
-        "--data-root", $DataRoot,
+        "--data-root", $kpiDataRoot,
         "--metrics-dir", $metricsDir,
-        "--repo-root", $RepoRoot
+        "--repo-root", $RepoRoot,
+        "--kpi-config", $kpiConfigPath
     )
 }
 

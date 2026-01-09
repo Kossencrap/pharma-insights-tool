@@ -39,7 +39,13 @@ OBJECTIVE_CUES = (
     "we sought",
     "we aimed",
 )
-DEFAULT_ALLOWED_SECTIONS = {"results", "result", "conclusion", "conclusions"}
+DEFAULT_ALLOWED_SECTIONS = {
+    "results",
+    "result",
+    "conclusion",
+    "conclusions",
+    "discussion",
+}
 SECTION_ALLOWLIST = {
     "comparative": {"results", "result", "conclusion", "conclusions", "discussion"},
     "safety": {"results", "result", "conclusion", "conclusions", "discussion"},

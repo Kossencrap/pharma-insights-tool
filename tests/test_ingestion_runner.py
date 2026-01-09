@@ -67,6 +67,7 @@ def test_run_ingestion_writes_outputs_and_uses_query_params(
         product_config=pathlib.Path(__file__).resolve().parents[1] / "config" / "products.json",
         expand_query_aliases=False,
         require_all_products=False,
+        require_comentions=False,
     )
 
     runner.run_ingestion(["MockProduct"], args, raw_dir=raw_dir, processed_dir=processed_dir)
@@ -146,6 +147,7 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys, execu
         product_config=None,
         expand_query_aliases=False,
         require_all_products=False,
+        require_comentions=False,
     )
 
     runner.run_ingestion(["NoResults"], args, raw_dir=raw_dir, processed_dir=processed_dir)
@@ -168,3 +170,84 @@ def test_run_ingestion_handles_zero_results(tmp_path, monkeypatch, capsys, execu
         "Ingestion run",
         "NoResults -> handled hitCount=0 with empty raw/structured outputs",
     )
+
+
+def test_require_comentions_skips_single_product_docs(tmp_path, monkeypatch, capsys):
+    raw_dir = tmp_path / "raw"
+    processed_dir = tmp_path / "processed"
+    db_path = tmp_path / "store.sqlite"
+
+    fake_results = [
+        EuropePMCSearchResult(
+            title="Entresto vs enalapril",
+            abstract="Entresto outperformed enalapril in mortality endpoints.",
+            raw={"id": 1},
+        ),
+        EuropePMCSearchResult(
+            title="Single product study",
+            abstract="Entresto monotherapy improved outcomes in patients.",
+            raw={"id": 2},
+        ),
+    ]
+
+    class FakeClient:
+        def __init__(self, polite_delay_s: float = 0.0):
+            self.polite_delay_s = polite_delay_s
+
+        @staticmethod
+        def build_drug_query(**kwargs):
+            return "mock query"
+
+        @staticmethod
+        def fetch_search_page(query, cursor_mark: str = "*", **_: object):
+            payload = {"hitCount": len(fake_results), "resultList": {"result": [r.raw for r in fake_results]}}
+            return payload, True
+
+        def search(self, query, max_records=None, initial_payload=None, use_cursor=True):
+            return iter(fake_results)
+
+    monkeypatch.setattr(runner, "EuropePMCClient", FakeClient)
+
+    args = argparse.Namespace(
+        from_date=None,
+        to_date=None,
+        include_reviews=True,
+        include_trials=True,
+        output_prefix=None,
+        max_records=5,
+        page_size=5,
+        polite_delay=0.0,
+        legacy_pagination=False,
+        no_proxy=False,
+        proxy=None,
+        db=db_path,
+        product_config=pathlib.Path(__file__).resolve().parents[1] / "config" / "products.json",
+        expand_query_aliases=False,
+        require_all_products=False,
+        require_comentions=True,
+    )
+
+    runner.run_ingestion(
+        ["enalapril", "sacubitril_valsartan"],
+        args,
+        raw_dir=raw_dir,
+        processed_dir=processed_dir,
+    )
+
+    raw_path = raw_dir / "enalapril_raw.json"
+    structured_path = processed_dir / "enalapril_structured.jsonl"
+    assert raw_path.exists()
+    assert structured_path.exists()
+
+    with structured_path.open("r", encoding="utf-8") as f:
+        structured_records = [json.loads(line) for line in f if line.strip()]
+    assert len(structured_records) == 1
+
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM documents")
+    assert cur.fetchone()[0] == 1
+    conn.close()
+
+    output = capsys.readouterr().out
+    assert "Skipped" in output

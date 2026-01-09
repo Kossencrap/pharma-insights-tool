@@ -8,6 +8,7 @@ stage remains independently testable.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,10 @@ DEFAULT_ARTIFACTS = Path("data/artifacts/phase1")
 DEFAULT_MAX_RECORDS = 250
 DEFAULT_EVENT_LIMIT = 7500
 DEFAULT_EVIDENCE_LIMIT = 300
+PHASE2_SENTENCE_EVENTS = Path("data/processed/latest_sentence_events.jsonl")
+PHASE2_LABEL_KPI = Path("data/artifacts/kpi/narratives_label_kpi.csv")
+PHASE2_UNLABELED = Path("data/artifacts/kpi/narratives_unlabeled.csv")
+KPI_CONFIG_PATH = ROOT / "config" / "narratives_kpis.json"
 
 
 def _slug(text: str) -> str:
@@ -34,6 +39,14 @@ def _run_command(cmd: Iterable[str], description: str) -> None:
     printable = " ".join(str(part) for part in cmd)
     print(f"\n[phase1] {description}\n  $ {printable}")
     subprocess.run(list(cmd), check=True)
+
+
+def _sha256_or_none(path: Path) -> str | None:
+    try:
+        data = path.read_bytes()
+    except FileNotFoundError:
+        return None
+    return hashlib.sha256(data).hexdigest()
 
 
 def parse_args() -> argparse.Namespace:
@@ -144,6 +157,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Require every selected product (and its aliases) to appear in the ingestion query (AND).",
     )
+    parser.add_argument(
+        "--require-comentions",
+        action="store_true",
+        help="Only persist documents/sentences that contain co-mentions during ingestion.",
+    )
     return parser.parse_args()
 
 
@@ -203,6 +221,8 @@ def main() -> None:
         ingestion_cmd.append("--expand-query-aliases")
     if args.require_all_products:
         ingestion_cmd.append("--require-all-products")
+    if args.require_comentions:
+        ingestion_cmd.append("--require-comentions")
     if not args.include_reviews:
         ingestion_cmd.append("--exclude-reviews")
     if not args.include_trials:
@@ -292,6 +312,15 @@ def main() -> None:
         "metrics_dir": str(metrics_outdir),
         "export_manifest": export_manifest,
         "export_manifest_path": export_manifest.get("manifest_path"),
+        "phase2_artifacts": {
+            "latest_sentence_events": str(PHASE2_SENTENCE_EVENTS),
+            "narratives_label_kpi_csv": str(PHASE2_LABEL_KPI),
+            "narratives_unlabeled_csv": str(PHASE2_UNLABELED),
+            "kpi_config": {
+                "path": str(KPI_CONFIG_PATH),
+                "sha256": _sha256_or_none(KPI_CONFIG_PATH),
+            },
+        },
         "limits": {
             "max_records": args.max_records,
             "event_limit": args.event_limit,
@@ -299,6 +328,7 @@ def main() -> None:
             "max_sentences_per_doc": args.max_sentences_per_doc,
             "max_co_mentions_per_sentence": args.max_co_mentions_per_sentence,
             "db_size_warn_mb": args.db_size_warn_mb,
+            "require_comentions": args.require_comentions,
         },
     }
 

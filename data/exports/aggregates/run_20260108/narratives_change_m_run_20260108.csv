@@ -1,0 +1,10 @@
+narrative_type,narrative_subtype,bucket_start,count,reference_avg,delta_count,delta_ratio,status,lookback_used,min_ratio,min_count
+access,coverage_access,2024-12-01 00:00:00+00:00,1.0,1.5,-0.5,-0.3333333333333333,stable,2,0.4,3.0
+comparative,comparative_efficacy,2026-01-01 00:00:00+00:00,2.0,3.0,-1.0,-0.3333333333333333,stable,4,0.4,3.0
+comparative,comparative_safety,2025-09-01 00:00:00+00:00,2.0,2.0,0.0,0.0,stable,4,0.4,3.0
+evidence,clinical_context,2025-06-01 00:00:00+00:00,1.0,1.0,0.0,0.0,stable,2,0.4,3.0
+evidence,clinical_trial,2025-04-01 00:00:00+00:00,1.0,1.5,-0.5,-0.3333333333333333,stable,4,0.4,3.0
+evidence,evidence_review,2023-11-01 00:00:00+00:00,1.0,,,,insufficient_history,0,0.4,3.0
+evidence,real_world,2025-11-01 00:00:00+00:00,3.0,2.25,0.75,0.3333333333333333,stable,4,0.4,3.0
+positioning,combination,2025-09-01 00:00:00+00:00,2.0,1.0,1.0,1.0,stable,3,0.4,3.0
+positioning,line_of_therapy,2024-01-01 00:00:00+00:00,1.0,1.0,0.0,0.0,stable,1,0.4,3.0

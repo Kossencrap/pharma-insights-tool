@@ -1,7 +1,17 @@
 # PowerShell helper to refresh sentence_events sentiment and sentiment metrics.
+param(
+    [switch]$RequireCoMentions
+)
 
 Set-Location "$PSScriptRoot\.."
 $env:PYTHONPATH = (Get-Location).Path
+
+if ($RequireCoMentions) {
+    Write-Host "Enforcing co-mention-only ingestion via PHARMA_REQUIRE_COMENTIONS=1" -ForegroundColor Cyan
+    $env:PHARMA_REQUIRE_COMENTIONS = "1"
+} else {
+    Remove-Item Env:PHARMA_REQUIRE_COMENTIONS -ErrorAction SilentlyContinue
+}
 
 py -m scripts.label_sentence_events `
   --db data\europepmc.sqlite `

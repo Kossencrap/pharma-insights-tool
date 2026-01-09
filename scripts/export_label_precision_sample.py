@@ -73,8 +73,6 @@ def _fetch_candidates(conn: sqlite3.Connection, allowed_sections: set[str] | Non
         normalized_section = canonical_section or (section_label.strip().lower() if section_label else None)
         if allowed_sections is not None and (normalized_section or "") not in allowed_sections:
             continue
-        if (narrative_type or "").strip().lower() == "evidence":
-            continue
         results.append(
             {
                 "sentence_id": sentence_id,
@@ -197,6 +195,13 @@ def parse_args() -> argparse.Namespace:
             "Specify 'all' to disable filtering."
         ),
     )
+    parser.add_argument(
+        "--require-subtypes",
+        nargs="+",
+        default=None,
+        metavar="SUBTYPE",
+        help="Ensure at least one row is sampled for each listed narrative subtype.",
+    )
     return parser.parse_args()
 
 
@@ -221,9 +226,24 @@ def main() -> None:
     if not rows:
         raise SystemExit("sentence_events table has no labeled rows; run label_sentence_events.py first.")
 
-    sample = _stratified_sample(
-        rows, desired_sample_size, kpi_spec.label_precision.high_risk_types, rng
-    )
+    required_types = kpi_spec.label_precision.high_risk_types
+    sample = _stratified_sample(rows, desired_sample_size, required_types, rng)
+    require_subtypes = {
+        value.strip().lower() for value in (args.require_subtypes or []) if value.strip()
+    }
+    if require_subtypes:
+        present_subtypes = {
+            (row.get("narrative_subtype") or "").strip().lower() for row in sample
+        }
+        missing_subtypes = require_subtypes - present_subtypes
+        if missing_subtypes:
+            subtype_rows = [
+                row
+                for row in rows
+                if (row.get("narrative_subtype") or "").strip().lower() in missing_subtypes
+                and row not in sample
+            ]
+            sample.extend(subtype_rows)
     _write_sample(args.output, sample)
     print(f"Wrote {len(sample)} KPI sample rows to {args.output}")
 

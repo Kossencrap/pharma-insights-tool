@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import inspect
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -50,6 +51,16 @@ INDICATION_CONFIG = ROOT / "config" / "indications.json"
 
 def _slug(text: str) -> str:
     return "_".join(text.lower().split())
+
+
+def _env_flag(name: str) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    if normalized in {"", "0", "false", "off", "no"}:
+        return False
+    return True
 
 
 def _default_status_key(product_names: List[str], include_reviews: bool, include_trials: bool) -> str:
@@ -203,6 +214,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Require every provided product group to appear in the Europe PMC query (AND combination).",
     )
+    parser.add_argument(
+        "--require-comentions",
+        action="store_true",
+        help=(
+            "Persist only documents/sentences that yield at least one co-mention pair. "
+            "Use for Phase 2 guardrail runs."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -249,6 +268,16 @@ def run_ingestion(
         print(
             f"No product config found at {product_config}; skipping mention extraction while still writing documents to DB."
         )
+
+    require_comentions = bool(getattr(args, "require_comentions", False))
+    if not require_comentions and _env_flag("PHARMA_REQUIRE_COMENTIONS"):
+        require_comentions = True
+    if require_comentions and not mention_extractor:
+        print(
+            "--require-comentions requires a valid product config for mention extraction.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
 
     indication_config: Path | None = getattr(args, "indication_config", None)
     indication_extractor: IndicationExtractor | None = None
@@ -436,58 +465,60 @@ def run_ingestion(
         json.dump([r.raw for r in raw_results], f, indent=2)
 
     documents = []
+    skipped_comention_docs = 0
     with structured_path.open("w", encoding="utf-8") as f:
         for record in normalized_results:
             doc = splitter.split_document(record)
-            documents.append(doc)
-            f.write(json.dumps(doc.to_dict()) + "\n")
+            should_process_sentences = conn is not None or require_comentions
+            sentence_rows: list[tuple[str, object]] = []
+            mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []
+            indication_batches: list[tuple[str, list[tuple[str, str, int, int]]]] = []
+            sentence_co_mentions: list[tuple[str, str, str, int]] = []
+            doc_mentions: list[ProductMention] = []
+            has_sentence_co_mentions = False
+            max_sentences = getattr(args, "max_sentences_per_doc", 0) or 0
+            max_pairs = getattr(args, "max_co_mentions_per_sentence", 0) or 0
+            warned_sentence_cap = False
+            warned_pair_cap = False
 
-            if conn:
-                upsert_document(conn, doc, raw_json=record.raw)
-                weight = compute_document_weight(
-                    doc_id=doc.doc_id,
-                    publication_date=doc.publication_date,
-                    raw_metadata=record.raw,
-                    weight_lookup=study_weight_lookup,
-                )
-                upsert_document_weight(conn, weight)
-
-                sentence_rows = []
-                mention_batches: list[tuple[str, list[tuple[str, str, str, int, int, str]]]] = []
-                indication_batches: list[tuple[str, list[tuple[str, str, int, int]]]] = []
-                sentence_co_mentions: list[tuple[str, str, str, int]] = []
-                doc_mentions: list[ProductMention] = []
-                max_sentences = getattr(args, "max_sentences_per_doc", 0) or 0
-                max_pairs = getattr(args, "max_co_mentions_per_sentence", 0) or 0
-                warned_sentence_cap = False
-                warned_pair_cap = False
-
+            if should_process_sentences:
                 for idx, sentence in enumerate(doc.iter_sentences()):
-                    if max_sentences and idx >= max_sentences:
-                        if not warned_sentence_cap:
+                    sentence_cap = max_sentences if conn else 0
+                    if sentence_cap and idx >= sentence_cap:
+                        if not warned_sentence_cap and conn:
                             print(
-                                f"Reached --max-sentences-per-doc={max_sentences} for {doc.doc_id}; skipping remaining sentences.",
+                                f"Reached --max-sentences-per-doc={sentence_cap} for {doc.doc_id}; skipping remaining sentences.",
                                 file=sys.stderr,
                             )
                             warned_sentence_cap = True
                         break
-                    sentence_id = build_sentence_id(doc.doc_id, sentence.section, sentence.index)
-                    sentence_rows.append((sentence_id, sentence))
 
-                    if mention_extractor:
-                        mentions = mention_extractor.extract(sentence.text)
-                        if mentions:
+                    sentence_id = build_sentence_id(doc.doc_id, sentence.section, sentence.index)
+                    if conn:
+                        sentence_rows.append((sentence_id, sentence))
+
+                    mentions = mention_extractor.extract(sentence.text) if mention_extractor else []
+                    if mentions:
+                        if conn:
                             doc_mentions.extend(mentions)
-                            sentence_pairs = co_mentions_from_sentence(mentions)
-                            if max_pairs and len(sentence_pairs) > max_pairs:
-                                sentence_pairs = sentence_pairs[:max_pairs]
+                        sentence_pairs = co_mentions_from_sentence(mentions)
+                        if sentence_pairs:
+                            has_sentence_co_mentions = True
+                            limited_pairs = sentence_pairs
+                            if conn and max_pairs and len(sentence_pairs) > max_pairs:
+                                limited_pairs = sentence_pairs[:max_pairs]
                                 if not warned_pair_cap:
                                     print(
                                         f"Capped co-mentions at {max_pairs} per sentence for {doc.doc_id}; extra pairs dropped.",
                                         file=sys.stderr,
                                     )
                                     warned_pair_cap = True
-                            sentence_co_mentions.extend((sentence_id, a, b, count) for a, b, count in sentence_pairs)
+                            if conn:
+                                sentence_co_mentions.extend(
+                                    (sentence_id, a, b, count) for a, b, count in limited_pairs
+                                )
+
+                        if conn:
                             mention_rows = [
                                 (
                                     f"{sentence_id}:{m.product_canonical}:{m.start_char}-{m.end_char}",
@@ -500,7 +531,8 @@ def run_ingestion(
                                 for m in mentions
                             ]
                             mention_batches.append((sentence_id, mention_rows))
-                    if indication_extractor:
+
+                    if indication_extractor and conn:
                         indications = indication_extractor.extract(sentence.text)
                         if indications:
                             indication_rows = [
@@ -513,6 +545,23 @@ def run_ingestion(
                                 for indication in indications
                             ]
                             indication_batches.append((sentence_id, indication_rows))
+
+            if require_comentions and not has_sentence_co_mentions:
+                skipped_comention_docs += 1
+                continue
+
+            documents.append(doc)
+            f.write(json.dumps(doc.to_dict()) + "\n")
+
+            if conn:
+                upsert_document(conn, doc, raw_json=record.raw)
+                weight = compute_document_weight(
+                    doc_id=doc.doc_id,
+                    publication_date=doc.publication_date,
+                    raw_metadata=record.raw,
+                    weight_lookup=study_weight_lookup,
+                )
+                upsert_document_weight(conn, weight)
 
                 if sentence_rows:
                     insert_sentences(conn, doc.doc_id, sentence_rows)
@@ -536,6 +585,11 @@ def run_ingestion(
         f"(normalized from {dedup_stats['input_count']} raw records) "
         f"for query: {query.query}"
     )
+    if require_comentions and skipped_comention_docs:
+        print(
+            f"Skipped {skipped_comention_docs} documents without sentence-level co-mentions "
+            "due to --require-comentions."
+        )
     if documents:
         section_counts = sentence_counts_by_section(documents[0])
         mean_len = mean_sentence_length(documents[0])
